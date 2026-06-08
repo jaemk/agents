@@ -1,0 +1,15 @@
+# Whitelist backup: ignore everything by default, then re-include safe files.
+/*
+
+# Top-level config worth backing up
+!/.gitignore
+!/CLAUDE.md
+!/settings.json
+!/keybindings.json
+
+# Only memory/ dirs under projects/ — never session transcripts or other data
+!/projects/
+/projects/*
+!/projects/*/
+/projects/*/*
+!/projects/*/memory/
