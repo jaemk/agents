@@ -16,6 +16,7 @@
 ## Technical writing
 Applies to all technical writing (PR descriptions, issue/PR replies, commit messages, docs, code comments, drafts the user will post), and to anything I write directly, not just one-off requests.
 - No emojis.
+- ASCII characters only, unless Unicode is specifically requested. No Unicode punctuation or symbols: use ASCII `->` not an arrow, `...` not an ellipsis, straight quotes `'`/`"` not curly ones, `-` not en/em dashes, `*` or `-` for bullets in prose, etc.
 - No em dashes. The user never uses them. Use periods, commas, parentheses, or a colon instead.
 - Matter-of-fact and concise. No emphatic bolding, no hype words, no wordiness. State what changed plainly. PR/issue bodies should be short and factual, not promotional.
 - For GitHub issue/PR replies specifically: greet with `Hi @user,` (capital H, comma). Very terse, one or two sentences plus a code block. No preamble, no sign-off, no exclamation marks, no enthusiasm words ("Good news", "Awesome"). Introduce code with a colon and let the code block carry the explanation. Flag caveats with "Note that ...". Use brief parenthetical glosses to clarify a term. Contractions are fine.
