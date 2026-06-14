@@ -56,6 +56,13 @@ for each `dev` shard's `test` certification - before continuing. If a `test` cer
 fails, send that shard back to `dev`; if a `fix-implementer` shard turns out to need reasoning,
 re-route it to `dev`.
 
+Never wait indefinitely. A shard that returns nothing usable, reports an error, or stalls (for
+example a sub-agent blocked on a tool-approval prompt that timed out) is a **failed shard**, not
+a reason to keep waiting. Surface the failure explicitly, then re-dispatch that shard once or
+abort the run with what completed - do not hang on a report that is not coming. Sub-agents should
+not need approvals: they invoke only committed resource scripts (allowlisted in `config/`), so a
+stall means something is wrong, not that you should wait longer.
+
 ### 4. Verify
 
 Run the detected CI and fix any failures (re-dispatch to the shard's owning executor) until
@@ -78,6 +85,9 @@ locally only if the user asked; do not push or open a PR unless asked.
 - All build/test/lint/ci commands come from `resources/detect-project.sh`; no hardcoded
   toolchain.
 - All tests are formal and committed (`dev`/`test`); never one-off inline probes.
+- Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)
+  that is allowlisted in `config/settings.json`, so no spawn ever blocks on a tool approval. A
+  sub-agent that stalls is a failed shard, not a wait - see step 3.
 - Shards must be disjoint in their written files so executors can run concurrently without
   corrupting each other.
 - Do not force-push or rewrite history unless explicitly asked.

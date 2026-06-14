@@ -1,6 +1,7 @@
 ---
 name: fix-implementer
 model: sonnet
+permissionMode: acceptEdits
 color: orange
 tools: Read, Edit, Write, Bash
 description: Applies an explicit, pre-specified fix to the working tree in any language. Executes a fix spec verbatim: does not decide what to fix or expand scope. For mechanical or repetitive review fixes delegated by a judgment core (e.g. /review fix).

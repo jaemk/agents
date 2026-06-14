@@ -48,4 +48,16 @@ test_check_color_audit() {
     assert_not_contains "$OUT" "already used by" "check single agent: no global color audit"
 }
 
-register test_check_good test_check_malformed test_check_strict test_check_color_audit
+test_check_permission_mode() {
+    local pmd; pmd="$(mktemp_d)"; mkdir -p "$pmd/agents"
+    printf -- '---\nname: bad\nmodel: sonnet\npermissionMode: dontask\ntools: Read\ncolor: blue\ndescription: one.\n---\nbody\n' > "$pmd/agents/bad.md"
+    printf -- '---\nname: ok\nmodel: sonnet\npermissionMode: dontAsk\ntools: Read\ncolor: green\ndescription: two.\n---\nbody\n' > "$pmd/agents/ok.md"
+    roots; AR="$pmd"
+    cap runx check agent:bad
+    assert_exit 1 "$RC" "check: invalid permissionMode -> exit 1"
+    assert_contains "$OUT" "invalid permissionMode 'dontask'" "check: names the bad permissionMode"
+    cap runx check agent:ok
+    assert_exit 0 "$RC" "check: valid permissionMode -> exit 0"
+}
+
+register test_check_good test_check_malformed test_check_strict test_check_color_audit test_check_permission_mode

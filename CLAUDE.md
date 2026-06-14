@@ -17,6 +17,15 @@ tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's
 4. **Language-agnostic.** No hardcoded `cargo`/`make`/`npm`/`pytest`/`origin/master`/package
    names in any agent, skill, or resource. Route build/test/lint/doc/version through
    `resources/detect-project.sh`.
+5. **No shell invocation that can block on approval.** Every command an agent or skill directs
+   a (sub-)agent to run must be auto-approvable: a committed resource script (or a plain
+   `git`/`jq`), with no `$(...)`, backticks, or `eval`, and covered by a `Bash(...)` rule in
+   `config/settings.json`. `resources/audit-shell-allowlist.py` enforces this (test:
+   `tests/cases/allowlist.sh`); when you add a skill/agent command, add its allow rule in the
+   same change. Spawned agents declare a non-interactive `permissionMode` (`acceptEdits` for
+   editors, `dontAsk` for read-only) so they never stall on a prompt. Orchestrators (`do`,
+   `review`) never wait indefinitely: a unit that errors, returns nothing, or stalls on a
+   timed-out approval is a failed unit - surface it and re-dispatch or abort, never hang.
 
 ## Layout
 

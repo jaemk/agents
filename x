@@ -446,6 +446,10 @@ check_agent() {
     done
     local mdl; mdl="$(fm_field "$file" model)"
     case "$mdl" in sonnet|opus|haiku|inherit|"") ;; *) warns+=("unusual model '$mdl'") ;; esac
+    # A typo'd permissionMode is silently ignored by the harness, which would let a
+    # spawned agent fall back to interactive prompts and stall a handoff. Pin it.
+    local pm; pm="$(fm_field "$file" permissionMode)"
+    case "$pm" in default|acceptEdits|auto|dontAsk|bypassPermissions|plan|"") ;; *) problems+=("invalid permissionMode '$pm'") ;; esac
     if [[ -z "$(body_after_fm "$file" | tr -d '[:space:]')" ]]; then problems+=("empty body"); fi
     if grep -qiE "$GENERICITY_RE" "$file"; then
         warns+=("hardcoded project-specific command(s) - route through detect-project.sh")

@@ -126,7 +126,10 @@ with an executor and model per shard. It assigns:
 
 Spawn one executor per shard from the planner's table, in a single batch, at the model the table
 specifies. Wait for all to report (and for each `dev` shard's `test` certification) before
-continuing. Then run the detected CI and regenerate the README if applicable:
+continuing. Never wait indefinitely: a shard (or a reviewer in step 3) that returns nothing
+usable, reports an error, or stalls on a tool-approval prompt that timed out is a **failed
+unit** - surface it and re-dispatch once or abort with what completed, do not hang. Then run the
+detected CI and regenerate the README if applicable:
 
 ```bash
 ~/.claude/skills/review/resources/pr.py ci
@@ -158,4 +161,7 @@ hides pre-push comments (use `--dry-run` first to preview). Report what was reso
   command. All build/test/lint/readme commands come from `resources/detect-project.sh`.
 - The reviewers are read-only. Only `fix` mode edits, and only through the agent chain:
   `implementor-reviewer`/`consumer-reviewer` -> `planner` -> `fix-implementer`/`dev` -> `test`.
+- Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)
+  that is allowlisted in `config/settings.json`, so no spawn ever blocks on a tool approval. A
+  sub-agent that stalls is a failed unit, not a wait - see step 7.
 - Do not force-push or rewrite history unless explicitly asked.

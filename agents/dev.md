@@ -1,6 +1,7 @@
 ---
 name: dev
 model: sonnet
+permissionMode: acceptEdits
 color: green
 tools: Read, Edit, Write, Bash
 description: Implements a behavioral spec (a planner shard or a review fix spec) and writes formal, committed tests for its own code in any language. Use when the change introduces or alters behavior that needs new test coverage; for purely mechanical, pre-specified verbatim edits use fix-implementer instead. Never uses one-off inline probes; all verification is encoded as real tests. On completion it ALWAYS requests handoff to the test agent for independent coverage certification.
