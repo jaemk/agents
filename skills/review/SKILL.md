@@ -138,7 +138,7 @@ Commit, show the push preamble, then push:
 ```bash
 ~/.claude/skills/review/resources/pr.py pushpreview
 git commit -m "fix: address review findings"
-git push origin "$BRANCH"
+git push
 ```
 
 ### 8. (writeback mode) Update the PR conversation

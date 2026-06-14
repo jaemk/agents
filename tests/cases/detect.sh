@@ -48,4 +48,37 @@ test_detect_unknown() {
     assert_contains "$OUT" "unknown" "detect unknown: reports unknown"
 }
 
-register test_detect_rust test_detect_node test_detect_python test_detect_go test_detect_ci_and_walkup test_detect_unknown
+test_detect_run_executes() {
+    local d; d="$(mktemp_d)"; : > "$d/Cargo.toml"; printf 'ci:\n\t@echo RAN_CI\n' > "$d/Makefile"
+    cap "$DET" "$d" --run ci
+    assert_exit 0 "$RC" "detect --run ci: exit 0"
+    assert_contains "$OUT" "RAN_CI" "detect --run ci: executes the detected command in the project root"
+}
+
+test_detect_run_propagates_failure() {
+    local d; d="$(mktemp_d)"; : > "$d/Cargo.toml"; printf 'ci:\n\t@exit 1\n' > "$d/Makefile"
+    cap "$DET" "$d" --run ci
+    assert_ne "0" "$RC" "detect --run ci: propagates the command's failure exit"
+}
+
+test_detect_run_empty_noop() {
+    local d; d="$(mktemp_d)"; printf '{}' > "$d/package.json"   # node, no docs script -> doc empty
+    cap "$DET" "$d" --run doc
+    assert_exit 0 "$RC" "detect --run doc: empty command is a no-op exit 0"
+    assert_contains "$OUT" "skipping" "detect --run doc: notes the skip"
+}
+
+test_detect_run_usage() {
+    local d; d="$(mktemp_d)"; : > "$d/Cargo.toml"
+    cap "$DET" "$d" --run all
+    assert_exit 2 "$RC" "detect --run all: non-runnable key -> exit 2"
+    cap "$DET" "$d" --run type
+    assert_exit 2 "$RC" "detect --run type: non-runnable key -> exit 2"
+    cap "$DET" "$d" --run ci --what build
+    assert_exit 2 "$RC" "detect --run with --what: mutually exclusive -> exit 2"
+    cap "$DET" "$d" --run
+    assert_exit 2 "$RC" "detect --run without a key -> exit 2"
+}
+
+register test_detect_rust test_detect_node test_detect_python test_detect_go test_detect_ci_and_walkup test_detect_unknown \
+    test_detect_run_executes test_detect_run_propagates_failure test_detect_run_empty_noop test_detect_run_usage

@@ -104,17 +104,15 @@ format of existing guides.
 If the project generates its README from source, run the detected generator:
 
 ```bash
-readme_cmd="$(~/.agents/resources/detect-project.sh . --what readme)"
-[[ -n "$readme_cmd" ]] && eval "$readme_cmd"   # e.g. writes README.md
+~/.agents/resources/detect-project.sh . --run readme   # no-op if no generator
 ```
 
-If no generator is detected, skip this step.
+If no generator is detected this is a no-op (exit 0); move on.
 
 ### 5. Verify
 
 ```bash
-ci_cmd="$(~/.agents/resources/detect-project.sh . --what ci)"
-eval "$ci_cmd"
+~/.agents/resources/detect-project.sh . --run ci
 ```
 
 Fix any failures before proceeding.

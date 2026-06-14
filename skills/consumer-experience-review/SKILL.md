@@ -107,7 +107,7 @@ For each finding: the natural code that failed -> the exact tool error -> root c
 `file:line`) -> a concrete proposed fix (and whether it is breaking or additive). Recommend a
 subset given the release window. **Do not implement fixes unless asked** - this skill produces a
 review. If asked to fix, re-run the isolated probes afterward to prove the natural code now
-works, and run the project's full check (`~/.agents/resources/detect-project.sh . --what ci`).
+works, and run the project's full check (`~/.agents/resources/detect-project.sh . --run ci`).
 
 ### 8. Clean up
 

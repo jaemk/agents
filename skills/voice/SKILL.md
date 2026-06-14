@@ -14,10 +14,10 @@ in settings.json without exposing `~/.claude`):
 resource script - never hardcode the path:
 
 ```bash
-profile="$(~/.claude/skills/voice/resources/voice-paths.sh --ensure)"   # seeds from template if missing
+~/.claude/skills/voice/resources/voice-paths.sh --ensure   # prints the path; seeds from template if missing
 ```
 
-Read and edit the profile **at that path**; it is the single source of truth and is read by my
+It prints the resolved profile path. Read and edit the profile **at that printed path**; it is the single source of truth and is read by my
 global writing instructions. It is not part of the installed skill, so no `x install` is needed
 after updating it.
 
@@ -53,7 +53,7 @@ Announce the resolved mode at the start.
    recurring verbs, and any consistent **conventions**. Note rough frequencies (e.g. "~70% use a
    conventional-commit prefix").
 
-3. Update the profile (at `$profile` from `voice-paths.sh --ensure`): rewrite **Observed
+3. Update the profile (at the path printed by `voice-paths.sh --ensure`): rewrite **Observed
    patterns** from this run, and refine **Distilled rules** so they capture the dominant,
    repeatable habits (not one-offs). Set the `Last updated` line. Keep rules concrete and
    imperative ("lead the subject with a conventional-commit type"), not vague ("be concise").

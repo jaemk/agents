@@ -62,8 +62,7 @@ Run the detected CI and fix any failures (re-dispatch to the shard's owning exec
 green:
 
 ```bash
-ci_cmd="$(~/.agents/resources/detect-project.sh . --what ci)"
-eval "$ci_cmd"
+~/.agents/resources/detect-project.sh . --run ci
 ```
 
 ### 5. Report

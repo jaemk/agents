@@ -8,11 +8,15 @@
 # command instead of baking one in; an empty value means "no command known, skip".
 #
 # Usage:
-#   detect-project.sh [DIR] [--what KEY]
+#   detect-project.sh [DIR] [--what KEY | --run KEY]
 #
 #   DIR        directory to inspect (default: .). Detection walks up to the root.
 #   --what KEY one of: type build test lint doc readme version_files ci all
 #              (default: all). Printing a single key omits the "key=" prefix.
+#   --run KEY  resolve the command for a runnable KEY (build test lint doc readme
+#              ci) and execute it, so callers never capture-and-eval the string
+#              themselves. An empty command for KEY is a no-op (exit 0). The
+#              command's own exit status is propagated.
 #
 # Output (all): one `key=value` line per known key, e.g.
 #   type=rust
@@ -30,13 +34,15 @@ set -euo pipefail
 
 usage() {
     cat >&2 <<'EOF'
-usage: detect-project.sh [DIR] [--what KEY]
-  KEY: type build test lint doc readme version_files ci all (default: all)
+usage: detect-project.sh [DIR] [--what KEY | --run KEY]
+  --what KEY: type build test lint doc readme version_files ci all (default: all)
+  --run  KEY: build test lint doc readme ci (resolve the command and execute it)
 EOF
 }
 
 dir="."
 what="all"
+run=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --what)
@@ -44,6 +50,11 @@ while [[ $# -gt 0 ]]; do
             what="$2"; shift 2 ;;
         --what=*)
             what="${1#--what=}"; shift ;;
+        --run)
+            [[ $# -ge 2 ]] || { usage; exit 2; }
+            run="$2"; shift 2 ;;
+        --run=*)
+            run="${1#--run=}"; shift ;;
         -h|--help)
             usage; exit 0 ;;
         --*)
@@ -53,10 +64,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# --what and --run are mutually exclusive: --run executes, --what prints.
+[[ -n "$run" && "$what" != "all" ]] && { usage; exit 2; }
+
 case "$what" in
     type|build|test|lint|doc|readme|version_files|ci|all) ;;
     *) usage; exit 2 ;;
 esac
+
+# --run accepts only runnable command keys (not type/version_files/all).
+if [[ -n "$run" ]]; then
+    case "$run" in
+        build|test|lint|doc|readme|ci) ;;
+        *) usage; exit 2 ;;
+    esac
+fi
 
 [[ -d "$dir" ]] || { echo "detect-project.sh: not a directory: $dir" >&2; exit 2; }
 
@@ -141,6 +163,34 @@ case "$type" in
         exit 3
         ;;
 esac
+
+# --run: resolve the command for the requested key and execute it here, so callers
+# issue one static invocation instead of capturing the string and eval-ing it. This
+# is the single, tested place the resolved command is run.
+if [[ -n "$run" ]]; then
+    cmd=""
+    case "$run" in
+        build)  cmd="$build" ;;
+        test)   cmd="$test" ;;
+        lint)   cmd="$lint" ;;
+        doc)    cmd="$doc" ;;
+        readme) cmd="$readme" ;;
+        ci)     cmd="$ci" ;;
+    esac
+    if [[ -z "$cmd" ]]; then
+        echo "detect-project.sh: no '$run' command for $type project, skipping" >&2
+        exit 0
+    fi
+    echo "detect-project.sh: running '$run' in $root: $cmd" >&2
+    # Run from the project root so the command sees the right tree. The if/else
+    # keeps set -e from masking the command's own exit status: $? in the else
+    # branch is the failed subshell's code, which we propagate.
+    if ( cd "$root" && eval "$cmd" ); then
+        exit 0
+    else
+        exit $?
+    fi
+fi
 
 emit() {
     local key="$1" val="$2"
