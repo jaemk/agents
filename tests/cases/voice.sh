@@ -39,6 +39,23 @@ test_voice_mine_errors() {
     assert_exit 2 "$RC" "voice mine: missing root -> exit 2"
 }
 
+test_voice_mine_default_author() {
+    # No --author: the script must auto-detect the identity from git config
+    # (user.email, else user.name). Pin global/system config to temp files and run
+    # from a non-repo dir so no local repo config leaks in - fully hermetic.
+    local root cfg; root="$(mktemp_d)"; cfg="$(mktemp_d)/gitconfig"
+    mkdir -p "$root/a"
+    git -C "$root/a" init -q
+    git_commit_as "$root/a" Me me@x.test "mine subject"
+    git_commit_as "$root/a" Other other@x.test "other subject"
+    printf '[user]\n\temail = me@x.test\n' > "$cfg"
+    OUT="$(cd "$root" && GIT_CONFIG_GLOBAL="$cfg" GIT_CONFIG_SYSTEM=/dev/null "$VOICE_MINE" "$root" 2>&1)"; RC=$?
+    assert_exit 0 "$RC" "voice mine default author: exit 0"
+    assert_contains "$OUT" "mine subject" "voice mine default author: includes auto-detected identity's commit"
+    assert_not_contains "$OUT" "other subject" "voice mine default author: filters out other authors"
+    assert_contains "$OUT" "by 'me@x.test'" "voice mine default author: summary names the auto-detected identity"
+}
+
 test_voice_paths() {
     local xdg; xdg="$(mktemp_d)"
     local p; p="$(XDG_DATA_HOME="$xdg" "$VOICE_PATHS")"
@@ -54,5 +71,5 @@ test_voice_paths() {
     assert_exit 2 "$RC" "voice-paths: unknown flag -> exit 2"
 }
 
-register test_voice_mine test_voice_mine_full test_voice_mine_errors test_voice_paths
+register test_voice_mine test_voice_mine_full test_voice_mine_default_author test_voice_mine_errors test_voice_paths
 

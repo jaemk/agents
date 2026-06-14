@@ -16,16 +16,17 @@ Helper script (run outside the sandbox for the GitHub commands, which need netwo
 ~/.claude/skills/review/resources/pr.py [PR_NUMBER] COMMAND [COMMAND ...]
 ```
 
-Commands: `comments threads resolve rerequest minimize ci readme pushpreview diff`. The local
-ones (`ci readme pushpreview diff`) take no PR number. `ci`/`readme` get their command from
-`~/.agents/resources/detect-project.sh`; override with `--ci-cmd` / `--readme-cmd`.
+Commands: `comments threads resolve rerequest minimize ci readme pushpreview diff units
+prnumber`. The local ones (`ci readme pushpreview diff units prnumber`) take no PR number.
+`ci`/`readme` get their command from `~/.agents/resources/detect-project.sh`; override with
+`--ci-cmd` / `--readme-cmd`.
 
 ## Modes (compose freely from the input)
 
 - **local** (default) - review your own uncommitted/branch changes (diff vs the detected base).
   Read-only.
 - **pr [N]** - also fetch PR #N's review comments and fold them into the findings. If N is
-  omitted, infer it from the current branch (`gh pr view --json number`).
+  omitted, infer it from the current branch with `pr.py prnumber`.
 - **fix** - after reviewing, plan and apply fixes, run the detected tests, and commit/push.
 - **writeback** - after pushing fixes, resolve threads, minimize prior comments, and re-request
   Copilot review. Implies a PR target.
@@ -69,10 +70,13 @@ cross-cutting issues. Keep atomic couplings (a file and its paired golden/snapsh
 unit line so they stay together:
 
 ```bash
-git diff --name-only "$BASE" \
-  | awk '{print $1, $1}' \
+~/.claude/skills/review/resources/pr.py units \
   | ~/.agents/resources/shard-plan.py --max-units 5
 ```
+
+`pr.py units` emits the baseline review-unit inventory (one `<file>\t<file>` line per changed
+file vs the detected base; pass `--base` to override). Merge any atomic-coupling lines before
+the pipe when you want a file and its paired golden/snapshot to stay in one unit.
 
 Pick `--max-units` from the review-agent model (sonnet: ~5 units/shard; opus: ~12). Shard the
 code set and consumer set independently. Each output line is one shard: `unit,unit<TAB>files`.

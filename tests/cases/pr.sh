@@ -67,6 +67,20 @@ test_pr_minimize() {
     assert_contains "$OUT" "Would minimize" "pr.py minimize --dry-run: lists without mutating"
 }
 
+test_pr_units() {
+    local g; g="$(mktemp_d)"; mk_git_repo "$g"
+    echo b >> "$g/f.txt"   # working-tree change vs origin/master
+    cap_cd "$g" "$PR_PY" units
+    assert_exit 0 "$RC" "pr.py units: exit 0"
+    assert_contains "$OUT" "f.txt"$'\t'"f.txt" "pr.py units: emits one <file>\\t<file> unit line per changed file"
+}
+
+test_pr_prnumber() {
+    cap pr_gh prnumber
+    assert_exit 0 "$RC" "pr.py prnumber: exit 0"
+    assert_eq "7" "$OUT" "pr.py prnumber: prints the PR number inferred from the branch"
+}
+
 test_pr_argval() {
     cap "$PR_PY" bogus
     assert_exit 2 "$RC" "pr.py: unknown command -> exit 2"
@@ -76,4 +90,4 @@ test_pr_argval() {
     assert_contains "$OUT" "PR number is required" "pr.py: explains the PR requirement"
 }
 
-register test_pr_ci test_pr_readme test_pr_diff_pushpreview test_pr_comments test_pr_threads test_pr_resolve test_pr_rerequest test_pr_minimize test_pr_argval
+register test_pr_ci test_pr_readme test_pr_diff_pushpreview test_pr_comments test_pr_threads test_pr_resolve test_pr_rerequest test_pr_minimize test_pr_units test_pr_prnumber test_pr_argval

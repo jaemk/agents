@@ -15,6 +15,10 @@ case "$sub" in
         # gh repo view --json owner,name
         echo '{"owner":{"login":"acme"},"name":"widget"}'
         ;;
+    pr)
+        # gh pr view --json number -q .number  (pr.py prnumber)
+        echo '7'
+        ;;
     api)
         if [[ "$args" == *graphql* ]]; then
             if [[ "$args" == *reviewThreads* ]]; then

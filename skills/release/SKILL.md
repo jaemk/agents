@@ -26,19 +26,21 @@ commands and the version files come from the shared detector.
 A pre-release audit, run before cutting a release (especially a major, the only window in which
 breaking changes are acceptable). It produces a report and changes nothing.
 
-Establish the baseline with plain, separate commands (no `$()` nesting, so each is
-auto-approvable):
+Gather the baseline signals with the helper (one auto-approvable command; all git/changelog
+inspection lives in the script, not inline shell):
 
 ```bash
-git describe --tags --abbrev=0    # last released tag (cross-check, may be stale)
-git tag --sort=-creatordate
-git log --oneline -20             # find the last release commit
+~/.agents/skills/release/resources/release-baseline.sh .   # last tag, tags, changelog headings, recent commits
 ```
 
-Read the last released version, then diff the whole accumulated surface against it
-(`git diff vX.Y.Z..HEAD --stat`). Tags can lag the real version - cross-check against the
-changelog's version headings and the last release commit; if they disagree, use the
-last-actually-released commit as the baseline.
+Reason over its output to pick the baseline: tags can lag the real version, so cross-check the
+last tag against the changelog's version headings and the recent commits. If they disagree, use
+the last-actually-released commit as the baseline. Then diff the whole accumulated surface
+against it:
+
+```bash
+~/.agents/skills/release/resources/release-baseline.sh --diff vX.Y.Z .   # git diff vX.Y.Z..HEAD --stat
+```
 
 Run two complementary reviews and synthesize:
 
@@ -76,7 +78,7 @@ Run these when the argument is a version string (or after a review, once the use
 ### 1. Bump the version
 
 ```bash
-~/.claude/skills/release/resources/bump-version.sh X.Y.Z
+~/.agents/skills/release/resources/bump-version.sh X.Y.Z
 ```
 
 This updates the version field in the detected version file(s) (Cargo.toml `[package]`,

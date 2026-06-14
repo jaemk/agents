@@ -1,6 +1,6 @@
 ---
 name: test
-model: sonnet
+model: opus
 color: yellow
 tools: Read, Edit, Write, Bash
 description: Certifies and improves test coverage from OUTSIDE the implementor's perspective. Independently finds untested paths and edge cases the author missed, adds formal committed tests, and certifies coverage. All tests are real and committed; never one-off probes.

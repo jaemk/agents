@@ -11,7 +11,8 @@ Usage:
 
 The leading PR_NUMBER is optional: required only for the GitHub commands
 (comments, threads, resolve, rerequest, minimize). The local commands
-(ci, readme, pushpreview, diff) need no PR number - e.g. `pr.py ci`.
+(ci, readme, pushpreview, diff, units, prnumber) need no PR number - e.g.
+`pr.py ci`. (prnumber shells out to gh but infers the PR from the branch.)
 
 Commands (executed in the order given):
   comments     Fetch and display all inline PR review comments (new vs pre-existing)
@@ -23,6 +24,9 @@ Commands (executed in the order given):
   readme       Run the detected README generator (if any)
   pushpreview  Print the git log + diff --stat push preamble for the current branch
   diff         Print `git diff <base>` (for handing to reviewer agents)
+  units        Print one `<file>\t<file>` unit line per changed file vs <base>
+               (the review-unit inventory; pipe straight into shard-plan.py)
+  prnumber     Print the PR number for the current branch (via `gh pr view`)
 
 Options:
   --owner OWNER     GitHub owner (auto-detected from `gh repo view`)
@@ -45,7 +49,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 COMMANDS = ("comments", "threads", "resolve", "rerequest", "minimize",
-            "ci", "readme", "pushpreview", "diff")
+            "ci", "readme", "pushpreview", "diff", "units", "prnumber")
 GH_COMMANDS = {"comments", "threads", "resolve", "rerequest", "minimize"}
 
 
@@ -439,6 +443,36 @@ def cmd_diff(base):
 
 
 # ---------------------------------------------------------------------------
+# units
+# ---------------------------------------------------------------------------
+
+def cmd_units(base):
+    # The review-unit inventory: one unit per changed file, emitted as the
+    # `UNIT_ID<TAB>FILE` lines that shard-plan.py consumes (id == file). Output is
+    # bare (no section header) so it pipes straight into the sharder. Atomic
+    # couplings can be merged onto one line by the caller before sharding.
+    r = subprocess.run(["git", "diff", "--name-only", base], capture_output=True, text=True)
+    for f in r.stdout.splitlines():
+        f = f.strip()
+        if f:
+            print(f"{f}\t{f}")
+
+
+# ---------------------------------------------------------------------------
+# prnumber
+# ---------------------------------------------------------------------------
+
+def cmd_prnumber():
+    # Infer the PR for the current branch so the skill never has to run an ad-hoc
+    # `gh pr view`. Bare numeric output (no header) for capture.
+    r = gh("pr", "view", "--json", "number", "-q", ".number", check=False)
+    num = r.stdout.strip()
+    if r.returncode != 0 or not num:
+        sys.exit("Cannot infer a PR number for the current branch; pass it explicitly.")
+    print(num)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -482,7 +516,9 @@ def main():
         if not owner or not repo:
             owner, repo = repo_info()
 
-    base = args.base or (default_base() if ("diff" in commands or "pushpreview" in commands) else None)
+    base = args.base or (default_base()
+                         if any(c in commands for c in ("diff", "pushpreview", "units"))
+                         else None)
 
     for cmd in commands:
         if cmd == "comments":
@@ -503,6 +539,10 @@ def main():
             cmd_pushpreview(branch=args.branch)
         elif cmd == "diff":
             cmd_diff(base)
+        elif cmd == "units":
+            cmd_units(base)
+        elif cmd == "prnumber":
+            cmd_prnumber()
 
 
 if __name__ == "__main__":
