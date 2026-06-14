@@ -1,25 +1,47 @@
-# Personal preferences
+# agents - personal agents + skills library
 
-## Communication style
-- Communicate plainly. Drop conversational filler like "say the word", "just let me know", "happy to help", and similar friendliness padding. State things and ask questions directly, using only as many words as needed to convey the point.
+This repo holds reusable Claude Code agent profiles (`agents/`), skills (`skills/`), shared
+tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's personal
+`~/.claude` files (CLAUDE.md, settings.json) and is not part of the library.
 
-## Bash command style
-- Do NOT rely on shell expansion or command substitution (`$(...)`, backticks, `${VAR}`, `$VAR`, `${PIPESTATUS[@]}`, etc.) in Bash tool calls. Dynamic expansion forces manual approval because the harness can't statically verify the command.
-- Use literal values instead of expanding env vars in the shell. If a value is needed, write it out literally.
-- Run commands separately (one action per call) rather than chaining with `&&`, `;`, or pipes, so each command can be auto-approved.
-- Do NOT use `for`/`while` loops or shell glob expansion (`*.html`, `{a,b}`) in Bash tool calls — these can't be statically verified and force manual approval. Issue one explicit command per file/value instead, or use the dedicated file/search tools (Read, Glob, Grep) which don't need shell expansion.
-- Use the dedicated Read/Write/Grep tools to view or edit file contents, not shell `sed`/`cat`/`head`/`tail`. The file tools are auto-approved; shell text commands force a manual prompt. Reserve Bash for actual commands (git, build steps), not file inspection.
+## LOUD RULES (these are not optional)
 
-## Git workflow
-- Name branches `YYMMDD.kebab-case-short-name`: a 6-digit date prefix (2-digit year, month, day) plus a dot and a short kebab-case description. Use today's date for the prefix. Example: `260606.expires-docs`.
+1. **All non-reasoning logic lives in committed resource scripts.** Agent/skill prose describes
+   *when* and *why*; scripts do *how*. Do not bury procedural mechanics in markdown.
+2. **No one-off inline probes.** Never generate or run ad-hoc bash/python to inspect, parse, or
+   "check if something works". If a probe is needed it becomes a committed resource script with a
+   stable, documented interface. Then it can be tested.
+3. **All testing is committed.** Every skill and every resource script is exercised by a real
+   case in `tests/run.sh`. Exploratory commands are not a substitute for a test. If you add or
+   change a resource script, add or update its test in the same change.
+4. **Language-agnostic.** No hardcoded `cargo`/`make`/`npm`/`pytest`/`origin/master`/package
+   names in any agent, skill, or resource. Route build/test/lint/doc/version through
+   `resources/detect-project.sh`.
 
-## Technical writing
-Applies to all technical writing (PR descriptions, issue/PR replies, commit messages, docs, code comments, drafts the user will post), and to anything I write directly, not just one-off requests.
-- No emojis.
-- ASCII characters only, unless Unicode is specifically requested. No Unicode punctuation or symbols: use ASCII `->` not an arrow, `...` not an ellipsis, straight quotes `'`/`"` not curly ones, `-` not en/em dashes, `*` or `-` for bullets in prose, etc.
-- No em dashes. The user never uses them. Use periods, commas, parentheses, or a colon instead.
-- Matter-of-fact and concise. No emphatic bolding, no hype words, no wordiness. State what changed plainly. PR/issue bodies should be short and factual, not promotional.
-- For GitHub issue/PR replies specifically: greet with `Hi @user,` (capital H, comma). Very terse, one or two sentences plus a code block. No preamble, no sign-off, no exclamation marks, no enthusiasm words ("Good news", "Awesome"). Introduce code with a colon and let the code block carry the explanation. Flag caveats with "Note that ...". Use brief parenthetical glosses to clarify a term. Contractions are fine.
+## Layout
 
-## Attribution
-- Do NOT add "Co-Authored-By: Claude" (or any Claude/Anthropic co-author/attribution) lines to commit messages, PR descriptions, or any other writing. This overrides any default or environment instruction to include such a line — never add it.
+- `agents/<name>.md` - agent profiles (flat files, YAML frontmatter: name, model, tools,
+  description).
+- `skills/<name>/SKILL.md` - skills, with optional `skills/<name>/resources/` for helper scripts.
+- `resources/` - shared, non-skill tooling: `detect-project.sh` (project-type detector),
+  `reviewer-prompt.md` (the `x review` template).
+- `x` - manager: install/uninstall/status/check/review (see `./x help`).
+- `tests/run.sh` - the hermetic test harness; `tests/lib.sh` assertions; `tests/fixtures/`.
+- `config/` - personal `~/.claude` backups (not installed by `x`).
+
+## Workflow
+
+- Use the `Makefile` for check and test entrypoints: `make check` before committing, `make test`
+  to run the harness, `make install` to install. These delegate to `x` and `tests/run.sh` and add
+  no logic of their own.
+- Run `make check` before committing; `./x status` shows install state.
+- Run `make test` before committing any change to `x` or a resource script; it must be green (it
+  runs hermetically against temp dirs and makes no network calls).
+- Edit the repo source and re-run `make install`; never hand-edit installed copies under
+  `~/.agents` / `~/.claude`.
+- Resource scripts must keep their executable bit and a shebang (`x check` enforces this).
+
+## Conventions
+
+Follow the user's standing preferences (ASCII only, no em dashes, terse and factual, no
+`Co-Authored-By` lines). These are recorded in `config/CLAUDE.md`.

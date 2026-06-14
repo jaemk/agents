@@ -1,11 +1,21 @@
-# Whitelist backup: ignore everything by default, then re-include safe files.
+# Whitelist backup: ignore everything by default, then re-include tracked dirs/files.
 /*
 
-# Top-level config worth backing up
+# Top-level
 !/.gitignore
 !/CLAUDE.md
-!/settings.json
-!/keybindings.json
+!/README.md
+!/Makefile
+!/x
+
+# Agents and skills library
+!/agents/
+!/skills/
+!/resources/
+!/tests/
+
+# Config backups (user CLAUDE.md, settings.json, keybindings.json)
+!/config/
 
 # Only memory/ dirs under projects/ — never session transcripts or other data
 !/projects/

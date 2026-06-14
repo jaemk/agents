@@ -1,9 +1,0 @@
-{
-  "model": "opus[1m]",
-  "theme": "dark",
-  "editorMode": "vim",
-  "remoteControlAtStartup": true,
-  "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true,
-  "skipWorkflowUsageWarning": true
-}
