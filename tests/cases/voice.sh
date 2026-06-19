@@ -3,6 +3,17 @@
 
 VOICE_MINE="$REPO/skills/voice/resources/mine-commits.sh"
 VOICE_PATHS="$REPO/skills/voice/resources/voice-paths.sh"
+VOICE_HOOK="$REPO/skills/voice/resources/voice-hook.sh"
+
+# Seed a profile under a temp XDG_DATA_HOME (voice-hook resolves it via voice-paths),
+# then feed PAYLOAD on stdin to the hook. Sets OUT/RC like cap().
+voice_hook() { # <xdg> <payload>
+    OUT="$(printf '%s' "$2" | XDG_DATA_HOME="$1" "$VOICE_HOOK" 2>&1)"; RC=$?
+}
+seed_profile() { # <xdg>
+    local p; p="$(XDG_DATA_HOME="$1" "$VOICE_PATHS" --ensure)"
+    printf 'VOICE-SENTINEL-XYZ\n' >> "$p"
+}
 
 test_voice_mine() {
     local root; root="$(mktemp_d)"
@@ -71,5 +82,42 @@ test_voice_paths() {
     assert_exit 2 "$RC" "voice-paths: unknown flag -> exit 2"
 }
 
-register test_voice_mine test_voice_mine_full test_voice_mine_default_author test_voice_mine_errors test_voice_paths
+test_voice_hook_commit() {
+    local xdg; xdg="$(mktemp_d)"; seed_profile "$xdg"
+    voice_hook "$xdg" '{"tool_name":"Bash","tool_input":{"command":"git commit -m \"x\""}}'
+    assert_exit 0 "$RC" "voice hook: git commit -> exit 0"
+    assert_contains "$OUT" '"hookEventName": "PreToolUse"' "voice hook: emits PreToolUse output"
+    assert_contains "$OUT" "VOICE-SENTINEL-XYZ" "voice hook: injects the profile content for a commit"
+}
+
+test_voice_hook_prose_write() {
+    local xdg; xdg="$(mktemp_d)"; seed_profile "$xdg"
+    voice_hook "$xdg" '{"tool_name":"Write","tool_input":{"file_path":"/tmp/README.md"}}'
+    assert_contains "$OUT" "VOICE-SENTINEL-XYZ" "voice hook: fires on a prose/doc write"
+}
+
+test_voice_hook_skips_non_writing() {
+    local xdg; xdg="$(mktemp_d)"; seed_profile "$xdg"
+    # Non-commit bash and code-file writes must be silent no-ops so the hook never
+    # taxes unrelated tool calls.
+    voice_hook "$xdg" '{"tool_name":"Bash","tool_input":{"command":"git status"}}'
+    assert_exit 0 "$RC" "voice hook: non-commit bash -> exit 0"
+    assert_eq "" "$OUT" "voice hook: non-commit bash emits nothing"
+    voice_hook "$xdg" '{"tool_name":"Write","tool_input":{"file_path":"/tmp/main.rs"}}'
+    assert_eq "" "$OUT" "voice hook: code-file write emits nothing"
+}
+
+test_voice_hook_degrades_safely() {
+    # Missing profile and empty stdin are no-ops, never a wedged tool call.
+    local xdg; xdg="$(mktemp_d)"
+    voice_hook "$xdg" '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}'
+    assert_exit 0 "$RC" "voice hook: missing profile -> exit 0"
+    assert_eq "" "$OUT" "voice hook: missing profile emits nothing"
+    voice_hook "$xdg" ''
+    assert_exit 0 "$RC" "voice hook: empty stdin -> exit 0"
+    assert_eq "" "$OUT" "voice hook: empty stdin emits nothing"
+}
+
+register test_voice_mine test_voice_mine_full test_voice_mine_default_author test_voice_mine_errors test_voice_paths \
+    test_voice_hook_commit test_voice_hook_prose_write test_voice_hook_skips_non_writing test_voice_hook_degrades_safely
 
