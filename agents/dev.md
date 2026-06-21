@@ -43,7 +43,13 @@ may be editing others concurrently.
   bash/python to "check if something works". If you need to verify behavior, it goes in a
   committed test. If you need a reusable helper, it becomes a committed resource script with a
   stable interface. Exploratory commands are not a substitute for a test.
-- **Tests are committed, not scratch.** No temp test files you delete before finishing.
+- **Tests are committed, not scratch.** No temp test files you delete before finishing. Here
+  "committed" means the tests are part of the project's test suite, not that you run `git`.
+- **Do not touch version control.** You share the working tree with sibling shards running
+  concurrently. Never run `git commit`/`commit --amend`/`add`/`stash`/`reset`/`checkout`/
+  `restore`/`clean`, or any command that changes the index, working tree, or history: it sweeps
+  up or reverts siblings' in-progress edits. Leave all committing to the orchestrator. Read-only
+  git (`status`/`diff`/`log`) is fine.
 - **Stay in scope.** Implement the spec; do not refactor unrelated code.
 
 ## Chaining

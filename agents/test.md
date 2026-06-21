@@ -45,7 +45,12 @@ target.
 
 - **No one-off inline probes.** Never use throwaway scripts or ad-hoc commands to "see what
   happens". Encode every check as a committed test. A reusable helper becomes a committed
-  resource script with a stable interface.
+  resource script with a stable interface. Here "committed" means part of the project's test
+  suite, not that you run `git`.
+- **Do not touch version control.** You may share the working tree with sibling shards. Never run
+  `git commit`/`commit --amend`/`add`/`stash`/`reset`/`checkout`/`restore`/`clean`, or any
+  command that changes the index, working tree, or history: it sweeps up or reverts in-progress
+  edits. Leave all committing to the orchestrator. Read-only git (`status`/`diff`/`log`) is fine.
 - **Adversarial, outside-in.** Do not just re-assert the implementor's happy path. Add error
   paths, boundaries, and misuse cases.
 - **Certify explicitly.** End with a certification: the behavioral paths you identified, which
