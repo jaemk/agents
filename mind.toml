@@ -1,0 +1,18 @@
+[source]
+description = ""   # what this source offers
+# prefix = "prefix"   # namespace items as prefix-<name>
+
+# Declare hooks that run when a consumer melds or unmelds this source.
+# Remove the leading `# ` to enable a hook.
+#
+[[hooks]]
+run = "./x config apply"         # shell command to run
+name = "Config apply"               # optional label shown in the prompt
+event = "install"             # "install" (default) or "uninstall"
+optional = true              # true = warn on failure; false = fail the meld
+#
+# [[hooks]]
+# run = "make clean"            # optional cleanup hook run at unmeld time
+# name = "Cleanup"
+# event = "uninstall"
+# optional = true               # failure here just prints a warning
