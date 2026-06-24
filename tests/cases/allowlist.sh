@@ -49,5 +49,26 @@ test_allowlist_bad_settings() {
     assert_exit 2 "$RC" "allowlist: missing settings file -> exit 2"
 }
 
+# mind expands a {{tools:}}/{{self}} token to the ABSOLUTE ~/.mind/store path at
+# runtime, and Claude matches Bash rules literally (no ~ expansion), so a
+# tilde-only rule does NOT cover the command - the absolute-form rule does. The
+# audit simulates the absolute runtime form, so it must flag the tilde-only case
+# and pass the absolute one.
+test_allowlist_token_needs_absolute_rule() {
+    local d; d="$(mktemp_d)"; mkdir -p "$d/skills/t"
+    printf '%s\n' '---' 'name: t' 'description: d' '---' '' '```bash' '{{tools:detect-project}} .' '```' \
+        > "$d/skills/t/SKILL.md"
+    # Tilde-only rule: the absolute-form command is not covered.
+    local s1="$d/tilde.json"; printf '%s' '{"permissions":{"allow":["Bash(~/.mind/store/**)"]}}' > "$s1"
+    cap "$AUDIT" --settings "$s1" "$d/skills"
+    assert_exit 1 "$RC" "allowlist: token cmd not covered by tilde-only rule -> exit 1"
+    assert_contains "$OUT" "{{tools:detect-project}}" "allowlist: names the uncovered token command"
+    # Absolute glob rule covering the real home: covered.
+    local s2="$d/abs.json"; printf '{"permissions":{"allow":["Bash(%s/.mind/store/**/*)"]}}' "$HOME" > "$s2"
+    cap "$AUDIT" --settings "$s2" "$d/skills"
+    assert_exit 0 "$RC" "allowlist: token cmd covered by absolute glob rule -> exit 0"
+}
+
 register test_allowlist_real test_allowlist_detects_gap test_allowlist_covers_allowed \
-    test_allowlist_pipes_builtins_comments test_allowlist_bad_settings
+    test_allowlist_pipes_builtins_comments test_allowlist_bad_settings \
+    test_allowlist_token_needs_absolute_rule

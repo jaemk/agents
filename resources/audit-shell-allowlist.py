@@ -81,24 +81,43 @@ def extract_commands(md_text):
                 yield seg
 
 
+def glob_base(rule):
+    """The literal directory prefix of a trailing-path-glob rule, else None.
+
+    Maps `<dir>/**/*`, `<dir>/**`, `<dir>/*`, and `<dir>**` to `<dir>/`, so any
+    command under that directory is matched. Longer suffixes are checked first.
+    """
+    for suffix in ("/**/*", "/**", "/*", "**"):
+        if rule.endswith(suffix):
+            base = rule[: -len(suffix)]
+            return base if base.endswith("/") else base + "/"
+    return None
+
+
 def is_covered(cmd, prefixes):
     head = cmd.split()[0] if cmd.split() else ""
     if head in SAFE_BUILTINS:
         return True
     for p in prefixes:
-        # A `**`-suffixed rule (e.g. ~/.mind/store/**) is a raw path-prefix match.
-        if p.endswith("**"):
-            if cmd.startswith(p[:-2]):
+        # A path-glob rule (e.g. ~/.mind/store/**, /home/u/.mind/store/**/*) is a
+        # directory-prefix match: strip the trailing glob and match under the dir.
+        base = glob_base(p)
+        if base is not None:
+            if cmd.startswith(base):
                 return True
         elif cmd == p or cmd.startswith(p + " "):
             return True
     return False
 
 
-# mind reference tokens resolve, at install, to paths under ~/.mind/store. The
+# mind reference tokens resolve, at install, to ABSOLUTE paths under the user's
+# ~/.mind/store (mind expands them to the real home path, not a literal ~). The
 # audit runs on source prose (tokens unexpanded), so it expands a leading token
-# to the same ~/.mind/store/... form Claude sees at runtime, then matches that.
-STORE = "~/.mind/store"
+# to that same absolute form Claude matches against at runtime. Claude matches
+# Bash rules literally with no ~ expansion, so a tilde-form allow rule does NOT
+# cover an absolute-path command - the allow rules must carry the absolute store
+# path (e.g. Bash(/home/<user>/.mind/store/**/*)) for these to auto-approve.
+STORE = str(Path.home() / ".mind" / "store")
 
 
 def item_identity(path):
