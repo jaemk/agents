@@ -1,6 +1,6 @@
 ---
 name: spec
-description: Adopt and maintain a spec-driven workflow: a repo-root spec/ dir with a feature-status table, per-topic docs with stable append-only IDs, and a document-first discipline (plan before build). Four commands automate the mechanics: init, add, todo, sync.
+description: Adopt and maintain a spec-driven workflow: a repo-root spec/ dir with a feature-status table, per-topic docs with stable append-only IDs, and a document-first discipline (plan before build). Use for "set up a spec", "document this feature before building", "what spec work is left", "mark a feature done", or "check the spec for drift". Not for writing the implementation (use /do) or reviewing code against the spec (use /review). Five commands automate the mechanics: init, add, todo, set, sync.
 allowed-tools: Bash, Read, Edit, Write, Agent
 ---
 
@@ -14,8 +14,8 @@ project root. Its `README.md` holds a feature-status table (status: `done`, `pla
 
 A feature is documented via `add` (status `planned`) before planning or implementation begins.
 Implementation follows via the `/do` chain. Once implemented and verified, the table row is
-flipped to `done`. `/review` validates that the implementation matches the spec. This sequence
-is mandatory: spec first, then build.
+flipped to `done` via `set`. `/review` validates that the implementation matches the spec. This
+sequence is mandatory: spec first, then build.
 
 ## Commands
 
@@ -59,6 +59,19 @@ List specs not yet done (status `planned` or `partial`).
 Prints one line per pending row as `<status><TAB><feature><TAB><spec-cell>`. Use this to
 decide what to implement next. `--json` emits a JSON array for programmatic use.
 
+### set
+
+Set the status of an existing table row, matched by feature name.
+
+```bash
+{{self}}/resources/spec.py set "Feature Name" PROJECT --status done
+```
+
+Rewrites the status cell of the matching row in place, preserving its spec link. Use this to
+flip a row to `done` after implementation and verification, or to `partial`. Exits 3 if the
+spec dir is not initialized or no row matches the name. Do not hand-edit the table; the script
+keeps it canonical and parseable.
+
 ### sync
 
 Report status counts and surface inconsistencies: a table row whose referenced doc file is
@@ -76,7 +89,7 @@ files, or manual edits to the table to catch drift.
 
 1. New project: `init`, then `add` one entry per planned feature (status `planned`).
 2. New feature request: `add` first (status `planned`), then plan and implement via `/do`.
-3. After implementation: flip the table row to `done`, run `sync` to verify consistency.
+3. After implementation: `set` the row to `done`, run `sync` to verify consistency.
 4. Backfill existing project: `init`, then `add` each known feature with its current status.
 5. Periodic review: `todo` to see what is unimplemented; `sync` to catch drift.
 

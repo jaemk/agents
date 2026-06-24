@@ -416,6 +416,60 @@ test_spec_sync_uninitialized() {
 }
 
 # ---------------------------------------------------------------------------
+# set
+# ---------------------------------------------------------------------------
+
+test_spec_set_to_done() {
+    # set flips a row to done, removing it from todo and shifting sync counts.
+    local d; d="$(mktemp_d)"
+    cap "$SPEC_PY" init "$d"
+    cap "$SPEC_PY" add "Shippable" "$d" --status planned
+    cap "$SPEC_PY" set "Shippable" "$d" --status done
+    assert_exit 0 "$RC" "spec set: exit 0"
+    assert_contains "$OUT" "set Shippable -> done" "spec set: reports change"
+    local readme; readme="$(< "$d/spec/README.md")"
+    assert_contains "$readme" "| Shippable | done | [shippable.md](shippable.md) |" \
+        "spec set: status cell rewritten, link preserved"
+    cap "$SPEC_PY" todo "$d"
+    assert_not_contains "$OUT" "Shippable" "spec set: excluded from todo after flip"
+    cap "$SPEC_PY" sync "$d" --json
+    assert_eq "1" "$(printf '%s' "$OUT" | jq -r '.counts.done')" "spec set: sync counts it as done"
+}
+
+test_spec_set_to_partial() {
+    local d; d="$(mktemp_d)"
+    cap "$SPEC_PY" init "$d"
+    cap "$SPEC_PY" add "Half Done" "$d" --status planned
+    cap "$SPEC_PY" set "Half Done" "$d" --status partial
+    assert_exit 0 "$RC" "spec set partial: exit 0"
+    local readme; readme="$(< "$d/spec/README.md")"
+    assert_contains "$readme" "| Half Done | partial |" "spec set partial: status cell rewritten"
+}
+
+test_spec_set_no_match() {
+    local d; d="$(mktemp_d)"
+    cap "$SPEC_PY" init "$d"
+    cap "$SPEC_PY" add "Shippable" "$d" --status planned
+    cap "$SPEC_PY" set "Nonexistent" "$d" --status done
+    assert_exit 3 "$RC" "spec set no match: exit 3"
+    assert_contains "$OUT" "no table row matching feature" "spec set no match: reports failure"
+}
+
+test_spec_set_uninitialized() {
+    local d; d="$(mktemp_d)"
+    cap "$SPEC_PY" set "Anything" "$d" --status done
+    assert_exit 3 "$RC" "spec set uninit: exit 3"
+    assert_contains "$OUT" "spec dir not initialized" "spec set uninit: reports not initialized"
+}
+
+test_spec_set_requires_status() {
+    local d; d="$(mktemp_d)"
+    cap "$SPEC_PY" init "$d"
+    cap "$SPEC_PY" set "Shippable" "$d"
+    assert_exit 2 "$RC" "spec set no --status: exit 2 (argparse usage error)"
+}
+
+# ---------------------------------------------------------------------------
 # dispatch: unknown command and no-arg
 # ---------------------------------------------------------------------------
 
@@ -463,5 +517,10 @@ register \
     test_spec_sync_counts_mixed_statuses \
     test_spec_flip_status_to_done_by_hand \
     test_spec_sync_uninitialized \
+    test_spec_set_to_done \
+    test_spec_set_to_partial \
+    test_spec_set_no_match \
+    test_spec_set_uninitialized \
+    test_spec_set_requires_status \
     test_spec_unknown_command \
     test_spec_no_args

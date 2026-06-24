@@ -13,6 +13,7 @@ Commands:
   add    NAME [PROJECT] [--status S] [--desc TEXT] [--dir D]
                                               add a new spec doc + table row
   todo   [PROJECT] [--dir D] [--json]         list unimplemented specs
+  set    NAME [PROJECT] --status S [--dir D]  set an existing row's status
   sync   [PROJECT] [--dir D] [--json]         report status counts and inconsistencies
 
 Exit codes: 0 ok, 1 inconsistency (sync), 2 usage error, 3 precondition failure.
@@ -24,7 +25,7 @@ import re
 import sys
 from pathlib import Path
 
-COMMANDS = ("init", "add", "todo", "sync")
+COMMANDS = ("init", "add", "todo", "set", "sync")
 
 README_NAME = "README.md"
 
@@ -319,6 +320,54 @@ def cmd_sync(args):
 
 
 # ---------------------------------------------------------------------------
+# set
+# ---------------------------------------------------------------------------
+
+
+def cmd_set(args):
+    root = args.project or "."
+    spec_dir = resolve_dir(root, args.dir)
+    readme = spec_dir / README_NAME
+    if not readme.exists():
+        print(f"spec dir not initialized: {spec_dir}", file=sys.stderr)
+        return 3
+
+    lines = readme.read_text().splitlines()
+    target = args.name.strip().lower()
+    in_table = False
+    past_sep = False
+    updated = False
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if not s.startswith("|"):
+            in_table = False
+            past_sep = False
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if len(cells) >= 2 and cells[0].lower() == "feature" and cells[1].lower() == "status":
+            in_table = True
+            past_sep = False
+            continue
+        if in_table and not past_sep:
+            if all(re.fullmatch(r"-+", c.replace(" ", "")) for c in cells if c.replace(" ", "")):
+                past_sep = True
+                continue
+        if in_table and past_sep and len(cells) >= 3 and cells[0].lower() == target:
+            cells[1] = args.status
+            lines[i] = "| " + " | ".join(cells) + " |"
+            updated = True
+            break
+
+    if not updated:
+        print(f"set: no table row matching feature {args.name!r}", file=sys.stderr)
+        return 3
+
+    readme.write_text("\n".join(lines) + "\n")
+    print(f"set {args.name} -> {args.status}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -357,6 +406,15 @@ def main(argv=None):
                         help="spec dir name relative to project root")
     p_todo.add_argument("--json", action="store_true", help="emit JSON array")
 
+    p_set = sub.add_parser("set", help="set an existing row's status")
+    p_set.add_argument("name", metavar="NAME", help="feature name (matches the table row)")
+    p_set.add_argument("project", nargs="?", default=None, metavar="PROJECT",
+                       help="project root (default: .)")
+    p_set.add_argument("--status", required=True,
+                       help="new status (e.g. done, partial, planned)")
+    p_set.add_argument("--dir", default=None, metavar="D",
+                       help="spec dir name relative to project root")
+
     p_sync = sub.add_parser("sync", help="report status counts and inconsistencies")
     p_sync.add_argument("project", nargs="?", default=None, metavar="PROJECT",
                         help="project root (default: .)")
@@ -380,6 +438,8 @@ def main(argv=None):
         return cmd_add(args)
     if args.command == "todo":
         return cmd_todo(args)
+    if args.command == "set":
+        return cmd_set(args)
     if args.command == "sync":
         return cmd_sync(args)
 
