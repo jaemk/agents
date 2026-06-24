@@ -15,7 +15,9 @@ shards are emitted in a randomized order (fresh OS entropy each run, or fixed vi
 --seed for reproducibility) and greedily packed up to --max-units units per shard
 (a single mandatory group is never split, even if it exceeds the cap).
 
-Usage:  shard-plan.py [--max-units N] [--seed N]
+Usage:  shard-plan.py [--max-units N] [--seed N] [UNITS_FILE]
+        Units are read from UNITS_FILE when given, else from stdin. Passing a
+        file lets the caller avoid a `printf ... |` pipe (auto-approvable).
 Output: one shard per line:  UNIT_ID,UNIT_ID<TAB>FILE,FILE   (ids in input order,
         files sorted). Empty input produces no output.
 Exit:   0 ok, 2 usage error.
@@ -32,10 +34,13 @@ def main():
                     help="max units per shard after grouping (default: 4)")
     ap.add_argument("--seed", type=int, default=None,
                     help="fix the RNG seed for reproducible shard order (default: OS entropy)")
+    ap.add_argument("units_file", nargs="?", default=None,
+                    help="read units from this file instead of stdin")
     args = ap.parse_args()
 
     units = []  # list of (id, set(files)) in input order
-    for line in sys.stdin:
+    src = open(args.units_file) if args.units_file else sys.stdin
+    for line in src:
         parts = line.split()
         if not parts:
             continue

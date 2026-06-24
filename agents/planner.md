@@ -25,7 +25,7 @@ you shape and shard it, and `dev` / `fix-implementer` carry it out.
   the detector rather than hardcoding them:
 
   ```bash
-  ~/.agents/resources/detect-project.sh .
+  {{tools:detect-project}} .
   ```
 
 ### 2. The shard table
@@ -43,7 +43,7 @@ committed, tested resource. Feed it the units and their written-file sets:
 printf '%s\n' \
   "ttl-logic  src/ttl.x tests/ttl_test.x" \
   "ttl-docs   README.md docs/ttl.md" \
-  | ~/.agents/resources/shard-plan.py --max-units 4
+  | {{tools:shard-plan}} --max-units 4
 ```
 
 Each output line is one shard: `unit,unit<TAB>file,file`. The script forces units sharing a

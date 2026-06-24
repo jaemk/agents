@@ -86,9 +86,46 @@ def is_covered(cmd, prefixes):
     if head in SAFE_BUILTINS:
         return True
     for p in prefixes:
-        if cmd == p or cmd.startswith(p + " "):
+        # A `**`-suffixed rule (e.g. ~/.mind/store/**) is a raw path-prefix match.
+        if p.endswith("**"):
+            if cmd.startswith(p[:-2]):
+                return True
+        elif cmd == p or cmd.startswith(p + " "):
             return True
     return False
+
+
+# mind reference tokens resolve, at install, to paths under ~/.mind/store. The
+# audit runs on source prose (tokens unexpanded), so it expands a leading token
+# to the same ~/.mind/store/... form Claude sees at runtime, then matches that.
+STORE = "~/.mind/store"
+
+
+def item_identity(path):
+    """The (kind, name) of the item a file belongs to, for {{self}} expansion."""
+    parts = Path(path).parts
+    for dir_name, kind in (("skills", "skill"), ("tools", "tool")):
+        if dir_name in parts:
+            return kind, parts[parts.index(dir_name) + 1]
+    for dir_name, kind in (("agents", "agent"), ("rules", "rule")):
+        if dir_name in parts:
+            return kind, Path(parts[parts.index(dir_name) + 1]).stem
+    return None, None
+
+
+def expand_token(cmd, kind, name):
+    """Expand a leading {{self}}/{{tools:}}/{{path:}} token to its store path."""
+    if cmd.startswith("{{self}}") and kind and name:
+        return f"{STORE}/{kind}/{name}" + cmd[len("{{self}}") :]
+    m = re.match(r"\{\{tools:([^}]+)\}\}", cmd)
+    if m:
+        return f"{STORE}/tool/{m.group(1).strip()}" + cmd[m.end() :]
+    m = re.match(r"\{\{path:([^}]+)\}\}", cmd)
+    if m:
+        ref = m.group(1).strip()
+        kn = ref.split(":", 1) if ":" in ref else [ref]
+        return f"{STORE}/{'/'.join(p.strip() for p in kn)}" + cmd[m.end() :]
+    return cmd
 
 
 def iter_md_files(paths):
@@ -126,8 +163,9 @@ def main(argv):
 
     violations = []
     for f in iter_md_files(scan):
+        kind, name = item_identity(f)
         for cmd in extract_commands(f.read_text()):
-            if not is_covered(cmd, prefixes):
+            if not is_covered(expand_token(cmd, kind, name), prefixes):
                 rel = f.relative_to(REPO) if str(f).startswith(str(REPO)) else f
                 violations.append((str(rel), cmd))
 

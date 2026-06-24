@@ -1,35 +1,43 @@
 # agents
 
-A personal library of Claude Code agent profiles and skills, plus a small manager (`x`) that
-installs them to a generic location (`~/.agents`) and symlinks them into Claude's discovery
-locations (`~/.claude`). Everything is language-agnostic: build/test/lint/doc/version commands
-come from a project-type detector, never hardcoded.
+A personal library of Claude Code agent profiles and skills. It is a [`mind`](https://github.com/jaemk/mind)
+source: `mind meld` installs the items and symlinks them into Claude's discovery locations
+(`~/.claude`). A small manager (`x`) handles linting, review, and config sync. Everything is
+language-agnostic: build/test/lint/doc/version commands come from a project-type detector, never
+hardcoded.
 
 ## Layout
 
 ```
 agents/<name>.md            agent profiles (frontmatter: name, model, tools, description)
 skills/<name>/SKILL.md      skills, with optional skills/<name>/resources/ helper scripts
-resources/                  shared tooling: detect-project.sh, reviewer-prompt.md
-x                           the manager (install/uninstall/status/check/review)
+tools/<name>/               mind tools: shared scripts referenced via {{tools:<name>}}
+                            (detect-project, shard-plan)
+resources/                  other shared files: reviewer-prompt.md, audit-shell-allowlist.py
+mind.toml                   mind source manifest (install hook)
+x                           the manager (lint/review/config sync)
 tests/run.sh                hermetic test harness (no network, uses temp dirs)
 config/                     backup of the user's personal ~/.claude files (synced via `x config`)
 ```
 
-## Install model
+## Install
 
-`x install` copies each item to `~/.agents` (generic, tool-agnostic) and then symlinks it into
-`~/.claude` so Claude discovers it:
+This repo is a [`mind`](https://github.com/jaemk/mind) source. To install everything, meld it:
 
-- agents: `~/.agents/agents/<name>.md`  ->  symlink `~/.claude/agents/<name>.md`
-- skills: `~/.agents/skills/<name>/`    ->  symlink `~/.claude/skills/<name>`
-- shared: `~/.agents/resources/`        (copied, no symlink; referenced by path)
+```bash
+mind meld .                          # from a local clone
+mind meld git@github.com:jaemk/agents   # straight from the remote
+mind meld jaemk/agents               # shorthand for the GitHub remote
+```
 
-Install is hash-aware: an item whose source matches what is already installed is skipped. A
-manifest at `~/.agents/manifest.json` records installed hashes.
+`mind meld` clones and registers the source, installs its items (skills, agents, tools - found by
+convention plus `mind.toml`), and runs the declared `config apply` install hook to sync the
+personal `~/.claude` files. Use `mind learn <item>` to install a single item, `mind recall` to see
+what is installed, and `mind sync --upgrade` to pull updates. See the mind README for the full
+command set.
 
-The install roots are overridable via `AGENTS_HOME`, `CLAUDE_HOME`, and `AGENTS_REPO` (the test
-harness points these at temp dirs).
+Under the hood mind copies each item into its store and symlinks it into each agent home
+(`~/.claude` by default) so Claude discovers it.
 
 ## Using `x`
 
@@ -75,8 +83,8 @@ Skills:
 
 ## Development
 
-Edit the source here and re-run `./x install`. Never hand-edit installed copies. Before
-committing changes to `x` or any resource script, run the harness:
+Edit the source here and re-meld (`mind meld .`) to reinstall. Never hand-edit installed copies.
+Before committing changes to `x` or any resource script, run the harness:
 
 ```bash
 bash tests/run.sh

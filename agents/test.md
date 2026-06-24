@@ -22,7 +22,7 @@ target.
 1. **Discover the toolchain:**
 
    ```bash
-   ~/.agents/resources/detect-project.sh .
+   {{tools:detect-project}} .
    ```
 
    Use the detected `test` command; do not assume a framework.

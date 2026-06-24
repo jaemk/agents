@@ -32,4 +32,14 @@ test_shard_empty() {
     assert_eq "" "$(printf '' | "$SHARD")" "shard: empty input -> no output"
 }
 
-register test_shard_grouping test_shard_determinism test_shard_random test_shard_packing test_shard_empty
+test_shard_file_input() {
+    local f; f="$(mktemp)"
+    printf '%s\n' 'u1 a.x t.x' 'u2 b.x t.x' 'u3 c.x' > "$f"
+    local fout sout
+    fout="$("$SHARD" --max-units 1 --seed 1 "$f")"
+    sout="$(printf '%s\n' 'u1 a.x t.x' 'u2 b.x t.x' 'u3 c.x' | "$SHARD" --max-units 1 --seed 1)"
+    rm -f "$f"
+    assert_eq "$sout" "$fout" "shard: UNITS_FILE argument matches stdin input"
+}
+
+register test_shard_grouping test_shard_determinism test_shard_random test_shard_packing test_shard_empty test_shard_file_input

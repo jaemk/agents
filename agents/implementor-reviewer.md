@@ -23,7 +23,7 @@ Do not assume a language or toolchain. When you need the project's build/test/li
 get them from the detector rather than guessing:
 
 ```bash
-~/.agents/resources/detect-project.sh .
+{{tools:detect-project}} .
 ```
 
 Use the reported `test`/`lint` only to reason about whether a finding is real (e.g. "this

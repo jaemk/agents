@@ -3,9 +3,10 @@
 
 .PHONY: install check test review-fix
 
+# Install via mind: melds this repo as a source and runs its config-apply hook.
+# Equivalent to running `mind meld .` by hand.
 install:
-	./x install
-	./x config apply
+	mind meld . --yes
 
 check:
 	./x check

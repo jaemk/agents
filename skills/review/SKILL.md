@@ -13,12 +13,12 @@ build/test/lint/readme command comes from the detector, never hardcoded.
 Helper script (run outside the sandbox for the GitHub commands, which need network):
 
 ```bash
-~/.claude/skills/review/resources/pr.py [PR_NUMBER] COMMAND [COMMAND ...]
+{{self}}/resources/pr.py [PR_NUMBER] COMMAND [COMMAND ...]
 ```
 
 Commands: `comments threads resolve rerequest minimize ci readme pushpreview diff units
 prnumber`. The local ones (`ci readme pushpreview diff units prnumber`) take no PR number.
-`ci`/`readme` get their command from `~/.agents/resources/detect-project.sh`; override with
+`ci`/`readme` get their command from `{{tools:detect-project}}`; override with
 `--ci-cmd` / `--readme-cmd`.
 
 ## Modes (compose freely from the input)
@@ -47,8 +47,8 @@ fix + writeback".
 ### 1. Acquire the diff
 
 ```bash
-~/.claude/skills/review/resources/pr.py diff                      # git diff vs the auto-detected base
-~/.claude/skills/review/resources/pr.py diff --base origin/main   # explicit base
+{{self}}/resources/pr.py diff                      # git diff vs the auto-detected base
+{{self}}/resources/pr.py diff --base origin/main   # explicit base
 ```
 
 The base branch is auto-detected from the remote's default branch (origin/HEAD, falling back to
@@ -70,8 +70,8 @@ cross-cutting issues. Keep atomic couplings (a file and its paired golden/snapsh
 unit line so they stay together:
 
 ```bash
-~/.claude/skills/review/resources/pr.py units \
-  | ~/.agents/resources/shard-plan.py --max-units 5
+{{self}}/resources/pr.py units \
+  | {{tools:shard-plan}} --max-units 5
 ```
 
 `pr.py units` emits the baseline review-unit inventory (one `<file>\t<file>` line per changed
@@ -94,7 +94,7 @@ spawn; otherwise omit `model` and they use their pinned default.
 ### 4. (pr mode) Fetch GitHub PR comments
 
 ```bash
-~/.claude/skills/review/resources/pr.py PR_NUMBER comments threads
+{{self}}/resources/pr.py PR_NUMBER comments threads
 ```
 
 Carry the open inline comments into step 5 alongside the agent findings.
@@ -132,14 +132,14 @@ unit** - surface it and re-dispatch once or abort with what completed, do not ha
 detected CI and regenerate the README if applicable:
 
 ```bash
-~/.claude/skills/review/resources/pr.py ci
-~/.claude/skills/review/resources/pr.py readme
+{{self}}/resources/pr.py ci
+{{self}}/resources/pr.py readme
 ```
 
 Commit, show the push preamble, then push:
 
 ```bash
-~/.claude/skills/review/resources/pr.py pushpreview
+{{self}}/resources/pr.py pushpreview
 git commit -m "fix: address review findings"
 git push
 ```
@@ -149,7 +149,7 @@ git push
 After pushing:
 
 ```bash
-~/.claude/skills/review/resources/pr.py PR_NUMBER resolve rerequest minimize
+{{self}}/resources/pr.py PR_NUMBER resolve rerequest minimize
 ```
 
 `resolve` closes all open threads, `rerequest` triggers a fresh Copilot review, `minimize`
@@ -158,7 +158,7 @@ hides pre-push comments (use `--dry-run` first to preview). Report what was reso
 ## Discipline
 
 - No one-off inline probes: every check the fix agents make is a committed test, never an ad-hoc
-  command. All build/test/lint/readme commands come from `resources/detect-project.sh`.
+  command. All build/test/lint/readme commands come from `{{tools:detect-project}}`.
 - The reviewers are read-only. Only `fix` mode edits, and only through the agent chain:
   `implementor-reviewer`/`consumer-reviewer` -> `planner` -> `fix-implementer`/`dev` -> `test`.
 - Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)

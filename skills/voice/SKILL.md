@@ -14,7 +14,7 @@ in settings.json without exposing `~/.claude`):
 resource script - never hardcode the path:
 
 ```bash
-~/.claude/skills/voice/resources/voice-paths.sh --ensure   # prints the path; seeds from template if missing
+{{self}}/resources/voice-paths.sh --ensure   # prints the path; seeds from template if missing
 ```
 
 It prints the resolved profile path. Read and edit the profile **at that printed path**; it is the single source of truth and is read by my
@@ -39,8 +39,8 @@ Announce the resolved mode at the start.
 1. Gather the corpus with the resource script (read-only; no edits):
 
    ```bash
-   ~/.claude/skills/voice/resources/mine-commits.sh ~/dev
-   ~/.claude/skills/voice/resources/mine-commits.sh ~/dev --full   # include bodies
+   {{self}}/resources/mine-commits.sh ~/dev
+   {{self}}/resources/mine-commits.sh ~/dev --full   # include bodies
    ```
 
    It prints one commit subject per line (subject+body with `--full`) across every git repo

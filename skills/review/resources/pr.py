@@ -3,7 +3,7 @@
 pr.py - GitHub-PR and local-diff helper for the /review skill.
 
 Language-agnostic: build/test/lint/readme commands are obtained from
-resources/detect-project.sh, not hardcoded. The base branch is auto-detected
+the detect-project tool, not hardcoded. The base branch is auto-detected
 (origin/HEAD, else origin/main, else origin/master) and overridable with --base.
 
 Usage:
@@ -82,9 +82,13 @@ def section(title):
 
 
 def detector_path():
-    # pr.py installs at <root>/.agents/skills/review/resources/pr.py; the shared
-    # detector is at <root>/.agents/resources/detect-project.sh.
-    return Path(__file__).resolve().parents[2].parent / "resources" / "detect-project.sh"
+    # Installed by mind, the token expands to the detect-project tool's store
+    # path; in the source tree (tests) it stays literal, so fall back to the
+    # repo's tools/ dir.
+    det = Path("{{tools:detect-project}}")
+    if det.exists():
+        return det
+    return Path(__file__).resolve().parents[3] / "tools" / "detect-project" / "detect-project.sh"
 
 
 def detect(what):

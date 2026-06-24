@@ -11,7 +11,7 @@ anything. Language-agnostic: nothing here assumes a particular ecosystem; build/
 commands and the version files come from the shared detector.
 
 ```bash
-~/.agents/resources/detect-project.sh .            # type, version_files, readme, test, ci
+{{tools:detect-project}} .            # type, version_files, readme, test, ci
 ```
 
 ## Input
@@ -30,7 +30,7 @@ Gather the baseline signals with the helper (one auto-approvable command; all gi
 inspection lives in the script, not inline shell):
 
 ```bash
-~/.agents/skills/release/resources/release-baseline.sh .   # last tag, tags, changelog headings, recent commits
+{{self}}/resources/release-baseline.sh .   # last tag, tags, changelog headings, recent commits
 ```
 
 Reason over its output to pick the baseline: tags can lag the real version, so cross-check the
@@ -39,7 +39,7 @@ the last-actually-released commit as the baseline. Then diff the whole accumulat
 against it:
 
 ```bash
-~/.agents/skills/release/resources/release-baseline.sh --diff vX.Y.Z .   # git diff vX.Y.Z..HEAD --stat
+{{self}}/resources/release-baseline.sh --diff vX.Y.Z .   # git diff vX.Y.Z..HEAD --stat
 ```
 
 Run two complementary reviews and synthesize:
@@ -78,7 +78,7 @@ Run these when the argument is a version string (or after a review, once the use
 ### 1. Bump the version
 
 ```bash
-~/.agents/skills/release/resources/bump-version.sh X.Y.Z
+{{self}}/resources/bump-version.sh X.Y.Z
 ```
 
 This updates the version field in the detected version file(s) (Cargo.toml `[package]`,
@@ -104,7 +104,7 @@ format of existing guides.
 If the project generates its README from source, run the detected generator:
 
 ```bash
-~/.agents/resources/detect-project.sh . --run readme   # no-op if no generator
+{{tools:detect-project}} . --run readme   # no-op if no generator
 ```
 
 If no generator is detected this is a no-op (exit 0); move on.
@@ -112,7 +112,7 @@ If no generator is detected this is a no-op (exit 0); move on.
 ### 5. Verify
 
 ```bash
-~/.agents/resources/detect-project.sh . --run ci
+{{tools:detect-project}} . --run ci
 ```
 
 Fix any failures before proceeding.

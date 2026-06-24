@@ -31,7 +31,7 @@ A structured fix spec:
    assuming a toolchain:
 
    ```bash
-   ~/.agents/resources/detect-project.sh .
+   {{tools:detect-project}} .
    ```
 
    Run the detected `test` (scoped to the affected test if the runner supports it) or `build`

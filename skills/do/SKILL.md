@@ -29,7 +29,7 @@ Restate the goal and its acceptance criteria in a sentence or two. Read the dire
 files for context and identify the project's commands (do not assume a toolchain):
 
 ```bash
-~/.agents/resources/detect-project.sh .
+{{tools:detect-project}} .
 ```
 
 ### 2. Plan (always)
@@ -69,7 +69,7 @@ Run the detected CI and fix any failures (re-dispatch to the shard's owning exec
 green:
 
 ```bash
-~/.agents/resources/detect-project.sh . --run ci
+{{tools:detect-project}} . --run ci
 ```
 
 ### 5. Report
@@ -82,7 +82,7 @@ locally only if the user asked; do not push or open a PR unless asked.
 
 - The chain is `planner` -> `fix-implementer`/`dev` -> `test`; do the planning in the `planner`
   agent, not inline, so sharding stays in one place and is reusable.
-- All build/test/lint/ci commands come from `resources/detect-project.sh`; no hardcoded
+- All build/test/lint/ci commands come from `{{tools:detect-project}}`; no hardcoded
   toolchain.
 - All tests are formal and committed (`dev`/`test`); never one-off inline probes.
 - Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)

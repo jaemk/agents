@@ -24,7 +24,7 @@ Do not assume an ecosystem. If you need to know how a consumer would depend on o
 project, ask the detector:
 
 ```bash
-~/.agents/resources/detect-project.sh .
+{{tools:detect-project}} .
 ```
 
 (The reported `type` and `version_files` tell you which manifest a consumer would reach for

@@ -23,7 +23,7 @@ may be editing others concurrently.
 1. **Discover the toolchain** instead of assuming it:
 
    ```bash
-   ~/.agents/resources/detect-project.sh .
+   {{tools:detect-project}} .
    ```
 
    Use the reported `build` / `test` / `lint` commands. Do not hardcode `cargo`/`npm`/`pytest`.

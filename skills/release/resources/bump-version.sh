@@ -2,7 +2,7 @@
 # bump-version.sh - set the package version in a project's version file(s).
 #
 # Language-agnostic: the version files are obtained from the shared detector
-# (resources/detect-project.sh), so this works for Cargo.toml, package.json, and
+# (the detect-project tool), so this works for Cargo.toml, package.json, and
 # pyproject.toml without hardcoding a layout. The version is updated only in the
 # package's own version field, not in dependency version requirements.
 #
@@ -22,7 +22,8 @@ dir="${2:-.}"
 [[ -d "$dir" ]] || { echo "bump-version.sh: not a directory: $dir" >&2; exit 2; }
 
 self_dir="$(cd "$(dirname "$0")" && pwd)"          # skills/release/resources
-det="$(cd "$self_dir/../../.." && pwd)/resources/detect-project.sh"
+det="{{tools:detect-project}}"   # mind expands this to the tool's store path
+[[ -x "$det" ]] || det="$(cd "$self_dir/../../.." && pwd)/tools/detect-project/detect-project.sh"   # source-tree fallback
 [[ -x "$det" ]] || { echo "bump-version.sh: detector not found at $det" >&2; exit 3; }
 
 vfiles="$("$det" "$dir" --what version_files || true)"

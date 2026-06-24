@@ -22,7 +22,7 @@ you are looking for. Evidence is a captured tool error, not an assertion.
 ## 0. Identify the ecosystem
 
 ```bash
-~/.agents/resources/detect-project.sh .
+{{tools:detect-project}} .
 ```
 
 The reported `type` and `version_files` tell you how a consumer depends on and invokes this
@@ -77,8 +77,8 @@ Deliberately reach for conventions first:
 Get the build and test commands from the detector rather than assuming them:
 
 ```bash
-~/.agents/resources/detect-project.sh <consumer-dir> --what build
-~/.agents/resources/detect-project.sh <consumer-dir> --what test
+{{tools:detect-project}} <consumer-dir> --what build
+{{tools:detect-project}} <consumer-dir> --what test
 ```
 
 For every failure, record the **exact** diagnostic - the error code and message (Rust
@@ -107,7 +107,7 @@ For each finding: the natural code that failed -> the exact tool error -> root c
 `file:line`) -> a concrete proposed fix (and whether it is breaking or additive). Recommend a
 subset given the release window. **Do not implement fixes unless asked** - this skill produces a
 review. If asked to fix, re-run the isolated probes afterward to prove the natural code now
-works, and run the project's full check (`~/.agents/resources/detect-project.sh . --run ci`).
+works, and run the project's full check (`{{tools:detect-project}} . --run ci`).
 
 ### 8. Clean up
 
