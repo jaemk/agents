@@ -20,7 +20,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=tests/lib.sh
 source "$HERE/lib.sh"
 
-CASE_ORDER=(install status check review config detect pr bump baseline shard voice allowlist xcli smoke)
+CASE_ORDER=(install status check review config detect pr bump baseline shard voice allowlist xcli smoke spec)
 for c in "${CASE_ORDER[@]}"; do
     # shellcheck disable=SC1090
     source "$HERE/cases/$c.sh"
