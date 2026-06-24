@@ -13,9 +13,9 @@ test_spec_init_fresh() {
     assert_file "$d/spec/README.md" "spec init: README.md created"
     local c; c="$(< "$d/spec/README.md")"
     assert_contains "$c" "| Feature | Status | Spec |" "spec init: table header present"
-    assert_contains "$c" "planned" "spec init: status legend mentions planned"
+    assert_contains "$c" "pending" "spec init: status legend mentions pending"
     assert_contains "$c" "done" "spec init: status legend mentions done"
-    assert_contains "$c" "partial" "spec init: status legend mentions partial"
+    assert_contains "$c" "research" "spec init: status legend mentions research"
     assert_contains "$c" "append-only" "spec init: Conventions mentions append-only IDs"
     assert_contains "$c" "document-first" "spec init: Conventions mentions document-first"
 }
@@ -39,16 +39,16 @@ test_spec_init_idempotent() {
 test_spec_add_basic() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Auth Flow" "$d" --status planned
+    cap "$SPEC_PY" add "Auth Flow" "$d" --status pending
     assert_exit 0 "$RC" "spec add: exit 0"
     assert_contains "$OUT" "added spec auth-flow.md" "spec add: reports slug"
-    assert_contains "$OUT" "planned" "spec add: reports status"
+    assert_contains "$OUT" "pending" "spec add: reports status"
     assert_file "$d/spec/auth-flow.md" "spec add: doc file created"
     local doc; doc="$(< "$d/spec/auth-flow.md")"
     assert_contains "$doc" "# Auth Flow" "spec add: H1 matches name"
     assert_contains "$doc" "AUTHFL-1" "spec add: starter ID present"
     local readme; readme="$(< "$d/spec/README.md")"
-    assert_contains "$readme" "| Auth Flow | planned | [auth-flow.md](auth-flow.md) |" "spec add: table row appended"
+    assert_contains "$readme" "| Auth Flow | pending | [auth-flow.md](auth-flow.md) |" "spec add: table row appended"
 }
 
 test_spec_add_with_desc() {
@@ -67,6 +67,16 @@ test_spec_add_done_status() {
     assert_exit 0 "$RC" "spec add done: exit 0"
     local readme; readme="$(< "$d/spec/README.md")"
     assert_contains "$readme" "| Core API | done |" "spec add done: status in table row"
+}
+
+test_spec_add_default_status_pending() {
+    # With no --status, a new row defaults to pending.
+    local d; d="$(mktemp_d)"
+    cap "$SPEC_PY" init "$d"
+    cap "$SPEC_PY" add "Future Thing" "$d"
+    assert_exit 0 "$RC" "spec add default: exit 0"
+    local readme; readme="$(< "$d/spec/README.md")"
+    assert_contains "$readme" "| Future Thing | pending |" "spec add default: status defaults to pending"
 }
 
 test_spec_add_overwrite_refused() {
@@ -92,16 +102,16 @@ test_spec_add_uninitialized() {
 test_spec_todo_lists_pending() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Feature A" "$d" --status planned
+    cap "$SPEC_PY" add "Feature A" "$d" --status pending
     cap "$SPEC_PY" add "Feature B" "$d" --status done
-    cap "$SPEC_PY" add "Feature C" "$d" --status partial
+    cap "$SPEC_PY" add "Feature C" "$d" --status research
     cap "$SPEC_PY" todo "$d"
     assert_exit 0 "$RC" "spec todo: exit 0"
-    assert_contains "$OUT" "Feature A" "spec todo: lists planned item"
-    assert_contains "$OUT" "Feature C" "spec todo: lists partial item"
+    assert_contains "$OUT" "Feature A" "spec todo: lists pending item"
+    assert_contains "$OUT" "Feature C" "spec todo: lists research item"
     assert_not_contains "$OUT" "Feature B" "spec todo: excludes done item"
-    assert_contains "$OUT" "planned" "spec todo: shows planned status"
-    assert_contains "$OUT" "partial" "spec todo: shows partial status"
+    assert_contains "$OUT" "pending" "spec todo: shows pending status"
+    assert_contains "$OUT" "research" "spec todo: shows research status"
 }
 
 test_spec_todo_empty() {
@@ -116,7 +126,7 @@ test_spec_todo_empty() {
 test_spec_todo_json() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Feature A" "$d" --status planned
+    cap "$SPEC_PY" add "Feature A" "$d" --status pending
     cap "$SPEC_PY" todo "$d" --json
     assert_exit 0 "$RC" "spec todo json: exit 0"
     local parsed; parsed="$(printf '%s' "$OUT" | jq -r '.[0].feature')"
@@ -139,7 +149,7 @@ test_spec_sync_clean() {
 test_spec_sync_missing_doc() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Feature A" "$d" --status planned
+    cap "$SPEC_PY" add "Feature A" "$d" --status pending
     # Remove the doc file to create inconsistency.
     rm "$d/spec/feature-a.md"
     cap "$SPEC_PY" sync "$d"
@@ -190,7 +200,7 @@ test_spec_resolve_dir_override_used_by_add() {
     assert_exit 0 "$RC" "spec add --dir: exit 0"
     assert_file "$d/mydocs/feature-a.md" "spec add --dir: doc lands in custom dir"
     local readme; readme="$(< "$d/mydocs/README.md")"
-    assert_contains "$readme" "| Feature A | planned |" "spec add --dir: row in custom dir README"
+    assert_contains "$readme" "| Feature A | pending |" "spec add --dir: row in custom dir README"
 }
 
 test_spec_resolve_dir_autodetect_specs() {
@@ -284,8 +294,8 @@ test_spec_add_rows_contiguous_in_table() {
     # "## Conventions" (outside the table), breaking todo/sync.
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Alpha" "$d" --status planned
-    cap "$SPEC_PY" add "Beta" "$d" --status partial
+    cap "$SPEC_PY" add "Alpha" "$d" --status pending
+    cap "$SPEC_PY" add "Beta" "$d" --status research
     cap "$SPEC_PY" add "Gamma" "$d" --status done
 
     # All three rows must be parsed by todo/sync, proving they are in the table.
@@ -316,22 +326,22 @@ test_spec_todo_tab_shape() {
     # Each line is exactly status<TAB>feature<TAB>spec-cell.
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Alpha" "$d" --status planned
+    cap "$SPEC_PY" add "Alpha" "$d" --status pending
     cap "$SPEC_PY" todo "$d"
-    assert_eq "$(printf 'planned\tAlpha\t[alpha.md](alpha.md)')" "$OUT" \
+    assert_eq "$(printf 'pending\tAlpha\t[alpha.md](alpha.md)')" "$OUT" \
         "spec todo shape: exact tab-separated line"
 }
 
 test_spec_todo_json_all_fields() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Alpha" "$d" --status partial
+    cap "$SPEC_PY" add "Alpha" "$d" --status research
     cap "$SPEC_PY" todo "$d" --json
     assert_exit 0 "$RC" "spec todo json fields: exit 0"
     local status; status="$(printf '%s' "$OUT" | jq -r '.[0].status')"
     local spec;   spec="$(printf '%s' "$OUT" | jq -r '.[0].spec')"
     local feature; feature="$(printf '%s' "$OUT" | jq -r '.[0].feature')"
-    assert_eq "partial" "$status" "spec todo json fields: status field"
+    assert_eq "research" "$status" "spec todo json fields: status field"
     assert_eq "Alpha" "$feature" "spec todo json fields: feature field"
     assert_eq "[alpha.md](alpha.md)" "$spec" "spec todo json fields: spec field is raw cell"
 }
@@ -351,7 +361,7 @@ test_spec_sync_missing_and_orphan_together() {
     # Both inconsistency classes at once: still exit 1, both messages present.
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Alpha" "$d" --status planned
+    cap "$SPEC_PY" add "Alpha" "$d" --status pending
     cap "$SPEC_PY" add "Beta" "$d" --status done
     rm "$d/spec/alpha.md"                       # missing doc
     printf '# Orphan\n' > "$d/spec/orphan.md"   # orphan doc
@@ -361,13 +371,13 @@ test_spec_sync_missing_and_orphan_together() {
     assert_contains "$OUT" "orphan doc: orphan.md" "spec sync both: reports orphan"
     # Mixed counts wording: <count>\t<status>, one per distinct status.
     assert_contains "$OUT" "$(printf '1\tdone')" "spec sync both: done count line"
-    assert_contains "$OUT" "$(printf '1\tplanned')" "spec sync both: planned count line"
+    assert_contains "$OUT" "$(printf '1\tpending')" "spec sync both: pending count line"
 }
 
 test_spec_sync_both_json() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Alpha" "$d" --status planned
+    cap "$SPEC_PY" add "Alpha" "$d" --status pending
     rm "$d/spec/alpha.md"
     printf '# Orphan\n' > "$d/spec/orphan.md"
     cap "$SPEC_PY" sync "$d" --json
@@ -381,14 +391,14 @@ test_spec_sync_both_json() {
 test_spec_sync_counts_mixed_statuses() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "A" "$d" --status planned
-    cap "$SPEC_PY" add "B" "$d" --status planned
-    cap "$SPEC_PY" add "C" "$d" --status partial
+    cap "$SPEC_PY" add "A" "$d" --status pending
+    cap "$SPEC_PY" add "B" "$d" --status pending
+    cap "$SPEC_PY" add "C" "$d" --status research
     cap "$SPEC_PY" add "D" "$d" --status done
     cap "$SPEC_PY" sync "$d" --json
     assert_exit 0 "$RC" "spec sync mixed: clean tree exit 0"
-    assert_eq "2" "$(printf '%s' "$OUT" | jq -r '.counts.planned')" "spec sync mixed: planned=2"
-    assert_eq "1" "$(printf '%s' "$OUT" | jq -r '.counts.partial')" "spec sync mixed: partial=1"
+    assert_eq "2" "$(printf '%s' "$OUT" | jq -r '.counts.pending')" "spec sync mixed: pending=2"
+    assert_eq "1" "$(printf '%s' "$OUT" | jq -r '.counts.research')" "spec sync mixed: research=1"
     assert_eq "1" "$(printf '%s' "$OUT" | jq -r '.counts.done')" "spec sync mixed: done=1"
 }
 
@@ -396,16 +406,16 @@ test_spec_flip_status_to_done_by_hand() {
     # Hand-editing a row to done removes it from todo and shifts sync counts.
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Shippable" "$d" --status planned
+    cap "$SPEC_PY" add "Shippable" "$d" --status pending
     cap "$SPEC_PY" todo "$d"
     assert_contains "$OUT" "Shippable" "spec flip: pending before edit"
-    # Flip the status cell from planned to done in place.
-    sed -i 's/| Shippable | planned |/| Shippable | done |/' "$d/spec/README.md"
+    # Flip the status cell from pending to done in place.
+    sed -i 's/| Shippable | pending |/| Shippable | done |/' "$d/spec/README.md"
     cap "$SPEC_PY" todo "$d"
     assert_not_contains "$OUT" "Shippable" "spec flip: excluded from todo after flip"
     cap "$SPEC_PY" sync "$d" --json
     assert_eq "1" "$(printf '%s' "$OUT" | jq -r '.counts.done')" "spec flip: sync counts it as done"
-    assert_eq "null" "$(printf '%s' "$OUT" | jq -r '.counts.planned')" "spec flip: no planned remaining"
+    assert_eq "null" "$(printf '%s' "$OUT" | jq -r '.counts.pending')" "spec flip: no pending remaining"
 }
 
 test_spec_sync_uninitialized() {
@@ -423,7 +433,7 @@ test_spec_set_to_done() {
     # set flips a row to done, removing it from todo and shifting sync counts.
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Shippable" "$d" --status planned
+    cap "$SPEC_PY" add "Shippable" "$d" --status pending
     cap "$SPEC_PY" set "Shippable" "$d" --status done
     assert_exit 0 "$RC" "spec set: exit 0"
     assert_contains "$OUT" "set Shippable -> done" "spec set: reports change"
@@ -436,20 +446,20 @@ test_spec_set_to_done() {
     assert_eq "1" "$(printf '%s' "$OUT" | jq -r '.counts.done')" "spec set: sync counts it as done"
 }
 
-test_spec_set_to_partial() {
+test_spec_set_to_research() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Half Done" "$d" --status planned
-    cap "$SPEC_PY" set "Half Done" "$d" --status partial
-    assert_exit 0 "$RC" "spec set partial: exit 0"
+    cap "$SPEC_PY" add "Half Done" "$d" --status pending
+    cap "$SPEC_PY" set "Half Done" "$d" --status research
+    assert_exit 0 "$RC" "spec set research: exit 0"
     local readme; readme="$(< "$d/spec/README.md")"
-    assert_contains "$readme" "| Half Done | partial |" "spec set partial: status cell rewritten"
+    assert_contains "$readme" "| Half Done | research |" "spec set research: status cell rewritten"
 }
 
 test_spec_set_no_match() {
     local d; d="$(mktemp_d)"
     cap "$SPEC_PY" init "$d"
-    cap "$SPEC_PY" add "Shippable" "$d" --status planned
+    cap "$SPEC_PY" add "Shippable" "$d" --status pending
     cap "$SPEC_PY" set "Nonexistent" "$d" --status done
     assert_exit 3 "$RC" "spec set no match: exit 3"
     assert_contains "$OUT" "no table row matching feature" "spec set no match: reports failure"
@@ -494,6 +504,7 @@ register \
     test_spec_add_basic \
     test_spec_add_with_desc \
     test_spec_add_done_status \
+    test_spec_add_default_status_pending \
     test_spec_add_overwrite_refused \
     test_spec_add_uninitialized \
     test_spec_add_prefix_multiword_punct \
@@ -518,7 +529,7 @@ register \
     test_spec_flip_status_to_done_by_hand \
     test_spec_sync_uninitialized \
     test_spec_set_to_done \
-    test_spec_set_to_partial \
+    test_spec_set_to_research \
     test_spec_set_no_match \
     test_spec_set_uninitialized \
     test_spec_set_requires_status \

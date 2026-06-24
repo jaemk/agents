@@ -36,8 +36,9 @@ Every feature is documented here before or as it lands, with its status.
 
 ## Feature status
 
-Status values: `done` (implemented and covered by tests), `planned` (documented,
-not yet built), `partial` (incomplete or partially implemented).
+Status values: `done` (implemented and covered by tests), `pending` (documented,
+not yet built; the default), `research` (needs investigation or design before it
+can be built). Keep each row's status current with `spec.py set`.
 
 | Feature | Status | Spec |
 |---------|--------|------|
@@ -46,9 +47,9 @@ not yet built), `partial` (incomplete or partially implemented).
 
 - Each normative statement carries a stable ID (e.g. `FEAT-1`, `API-3`). IDs are
   append-only: retire an ID by marking it removed, never reuse the number.
-- Specs are document-first: a feature is documented (status `planned`) before
-  planning or implementation begins. Flip to `done` only once implemented and
-  verified.
+- Specs are document-first: a feature is documented (status `pending`, or
+  `research` if it needs design work) before implementation begins. Flip to
+  `done` only once implemented and verified.
 - Spec files are named `<slug>.md` and linked from the table above.
 """
 
@@ -392,8 +393,8 @@ def main(argv=None):
     p_add.add_argument("name", metavar="NAME", help="feature name")
     p_add.add_argument("project", nargs="?", default=None, metavar="PROJECT",
                        help="project root (default: .)")
-    p_add.add_argument("--status", default="planned",
-                       help="initial status (default: planned)")
+    p_add.add_argument("--status", default="pending",
+                       help="initial status: done, pending, or research (default: pending)")
     p_add.add_argument("--desc", default=None, metavar="TEXT",
                        help="optional description paragraph")
     p_add.add_argument("--dir", default=None, metavar="D",
@@ -411,7 +412,7 @@ def main(argv=None):
     p_set.add_argument("project", nargs="?", default=None, metavar="PROJECT",
                        help="project root (default: .)")
     p_set.add_argument("--status", required=True,
-                       help="new status (e.g. done, partial, planned)")
+                       help="new status: done, pending, or research")
     p_set.add_argument("--dir", default=None, metavar="D",
                        help="spec dir name relative to project root")
 

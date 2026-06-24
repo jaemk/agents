@@ -7,15 +7,23 @@ allowed-tools: Bash, Read, Edit, Write, Agent
 # spec
 
 Manage a spec-driven workflow for any project. The spec lives in a `spec/` directory at the
-project root. Its `README.md` holds a feature-status table (status: `done`, `planned`,
-`partial`). Per-topic doc files carry stable append-only IDs (e.g. `AUTH-1`, `API-3`).
+project root. Its `README.md` holds a feature-status table. Per-topic doc files carry stable
+append-only IDs (e.g. `AUTH-1`, `API-3`).
+
+Use this skill to keep each spec's status current: every feature carries one of three statuses,
+and the row is updated (via `set`) as the work moves. Check and maintain statuses as features
+are planned, researched, and shipped.
+
+- `done` - implemented and covered by tests.
+- `pending` - documented, not yet built. The default for a new spec.
+- `research` - needs investigation or design before it can be built.
 
 ## Document-first discipline
 
-A feature is documented via `add` (status `planned`) before planning or implementation begins.
-Implementation follows via the `/do` chain. Once implemented and verified, the table row is
-flipped to `done` via `set`. `/review` validates that the implementation matches the spec. This
-sequence is mandatory: spec first, then build.
+A feature is documented via `add` (status `pending`, or `research` if it needs design work)
+before planning or implementation begins. Implementation follows via the `/do` chain. Once
+implemented and verified, the table row is flipped to `done` via `set`. `/review` validates that
+the implementation matches the spec. This sequence is mandatory: spec first, then build.
 
 ## Commands
 
@@ -39,17 +47,17 @@ That review is the agent's job, not the script's.
 Add a new feature spec doc and append a table row.
 
 ```bash
-{{self}}/resources/spec.py add "Feature Name" PROJECT --status planned --desc "Short description"
+{{self}}/resources/spec.py add "Feature Name" PROJECT --status pending --desc "Short description"
 ```
 
 Slugifies the name to `<slug>.md`, creates the doc with an H1 and a starter ID (`PREFIX-1`),
 and appends a row to the table. Exits 3 if the spec dir is not initialized or the file already
-exists. Default status is `planned`. Use `--status partial` or `--status done` when back-filling
-an existing project.
+exists. Default status is `pending`. Use `--status research` for a feature that still needs
+design, or `--status done` when back-filling an already-built feature.
 
 ### todo
 
-List specs not yet done (status `planned` or `partial`).
+List specs not yet done (status `pending` or `research`).
 
 ```bash
 {{self}}/resources/spec.py todo PROJECT
@@ -61,16 +69,18 @@ decide what to implement next. `--json` emits a JSON array for programmatic use.
 
 ### set
 
-Set the status of an existing table row, matched by feature name.
+Update the status of an existing table row, matched by feature name. This is the primary way to
+keep statuses current as work moves.
 
 ```bash
 {{self}}/resources/spec.py set "Feature Name" PROJECT --status done
 ```
 
-Rewrites the status cell of the matching row in place, preserving its spec link. Use this to
-flip a row to `done` after implementation and verification, or to `partial`. Exits 3 if the
-spec dir is not initialized or no row matches the name. Do not hand-edit the table; the script
-keeps it canonical and parseable.
+Rewrites the status cell of the matching row in place, preserving its spec link. Use it to move
+a row between `pending`, `research`, and `done`: flip to `done` after implementation and
+verification, or to `research` when a `pending` feature turns out to need design first. Exits 3
+if the spec dir is not initialized or no row matches the name. Do not hand-edit the table; the
+script keeps it canonical and parseable.
 
 ### sync
 
@@ -87,11 +97,13 @@ files, or manual edits to the table to catch drift.
 
 ## Workflow summary
 
-1. New project: `init`, then `add` one entry per planned feature (status `planned`).
-2. New feature request: `add` first (status `planned`), then plan and implement via `/do`.
+1. New project: `init`, then `add` one entry per feature (status `pending`, or `research` if it
+   needs design first).
+2. New feature request: `add` first (status `pending`), then plan and implement via `/do`.
 3. After implementation: `set` the row to `done`, run `sync` to verify consistency.
 4. Backfill existing project: `init`, then `add` each known feature with its current status.
-5. Periodic review: `todo` to see what is unimplemented; `sync` to catch drift.
+5. Periodic review: `todo` to see what is unimplemented; `set` to keep statuses current; `sync`
+   to catch drift.
 
 ## Notes
 
