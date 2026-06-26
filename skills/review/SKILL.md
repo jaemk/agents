@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review code changes and optionally fix the findings. Defaults to a read-only review of your local changes (diff vs the detected base branch): shards the diff, spawns implementor-reviewer and consumer-reviewer agents in parallel, and reports deduplicated findings with severity and a verdict. Add `pr [N]` to also pull a GitHub PR's review comments, `fix` to plan and apply fixes (mechanical -> fix-implementer, substantive -> dev then test), and `writeback` to resolve threads / minimize comments / re-request Copilot. Language-agnostic via detect-project.sh. Use for "review my changes", "review this PR", "review and fix", "address the PR comments".
+description: Review code changes and optionally fix the findings. Defaults to a read-only review of your local changes (diff vs the detected base branch): shards the diff, spawns implementor-reviewer, consumer-reviewer, and adversarial security-reviewer agents in parallel, and reports deduplicated findings with severity and a verdict. Add `pr [N]` to also pull a GitHub PR's review comments, `fix` to plan and apply fixes (mechanical -> fix-implementer, substantive -> dev then test), and `writeback` to resolve threads / minimize comments / re-request Copilot. Language-agnostic via detect-project.sh. Use for "review my changes", "review this PR", "review and fix", "address the PR comments".
 allowed-tools: Bash, Read, Edit, Write, Agent
 ---
 
@@ -39,7 +39,7 @@ fix + writeback".
 | Tier | What | Model |
 |------|------|-------|
 | 0 mechanical | `pr.py` (GitHub API, ci, readme, diff, push preamble) | script, no model |
-| 1 delegation | review sub-agents (`implementor-reviewer`/`consumer-reviewer`); fix executors (`fix-implementer`/`dev`/`test`) fanned across disjoint shards | sonnet (override per run) |
+| 1 delegation | review sub-agents (`implementor-reviewer`/`consumer-reviewer`/`security-reviewer`); fix executors (`fix-implementer`/`dev`/`test`) fanned across disjoint shards | each agent's pinned default (override per run) |
 | 2 judgment   | shard the diff for review; dedup + classify findings; hand valid findings to the `planner`, which shards the fix work | opus (session model + `planner`) |
 
 ## Steps
@@ -59,7 +59,13 @@ except keep **atomic couplings** together (a generated file and its source, a te
 fixture it asserts on) as a single unit. Tag each unit:
 - **code set** - every changed source/test file (reviewed by `implementor-reviewer`).
 - **consumer set** - public-facing surface only: public API/exports, CLI, README/docs,
-  changelog, examples (reviewed by `consumer-reviewer`). A unit can be in both.
+  changelog, examples (reviewed by `consumer-reviewer`).
+- **security set** - source touching a security-sensitive surface: untrusted input
+  (request/CLI/file/network/env data), auth, crypto, secrets, filesystem or process execution,
+  serialization, or a newly added dependency (reviewed by the adversarial `security-reviewer`).
+  A pure-internal change with no such surface needs no security pass; when in doubt, include it.
+
+A unit can be in more than one set.
 
 ### 2. Shard the changed files
 
@@ -79,17 +85,19 @@ file vs the detected base; pass `--base` to override). Merge any atomic-coupling
 the pipe when you want a file and its paired golden/snapshot to stay in one unit.
 
 Pick `--max-units` from the review-agent model (sonnet: ~5 units/shard; opus: ~12). Shard the
-code set and consumer set independently. Each output line is one shard: `unit,unit<TAB>files`.
-Announce the shard counts.
+code set, consumer set, and security set independently. Each output line is one shard:
+`unit,unit<TAB>files`. Announce the shard counts.
 
 ### 3. Spawn one reviewer per shard, in parallel
 
 For each code shard spawn an `implementor-reviewer`; for each consumer shard spawn a
-`consumer-reviewer`. Each agent's prompt carries: the target, its explicit file list, and an
-instruction to scope findings to those files (read others only for context). Both are read-only
-and carry their own rubric. Spawn all shard agents in a single message so they run
-concurrently. With a model override in the input (e.g. "review with opus"), pass it to every
-spawn; otherwise omit `model` and they use their pinned default.
+`consumer-reviewer`; for each security shard spawn a `security-reviewer` (an adversarial,
+attacker-mindset pass). Each agent's prompt carries: the target, its explicit file list, and an
+instruction to scope findings to those files (read others only for context). All three are
+read-only and carry their own rubric. Spawn all shard agents in a single message so they run
+concurrently. The review sub-agents default to their pinned model (opus); with a model override
+in the input (e.g. "review with sonnet"), pass it to every spawn, otherwise omit `model` and
+they use that default.
 
 ### 4. (pr mode) Fetch GitHub PR comments
 
@@ -160,7 +168,8 @@ hides pre-push comments (use `--dry-run` first to preview). Report what was reso
 - No one-off inline probes: every check the fix agents make is a committed test, never an ad-hoc
   command. All build/test/lint/readme commands come from `{{tools:detect-project}}`.
 - The reviewers are read-only. Only `fix` mode edits, and only through the agent chain:
-  `implementor-reviewer`/`consumer-reviewer` -> `planner` -> `fix-implementer`/`dev` -> `test`.
+  `implementor-reviewer`/`consumer-reviewer`/`security-reviewer` -> `planner` ->
+  `fix-implementer`/`dev` -> `test`.
 - Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)
   that is allowlisted in `config/settings.json`, so no spawn ever blocks on a tool approval. A
   sub-agent that stalls is a failed unit, not a wait - see step 7.
