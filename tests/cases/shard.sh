@@ -42,4 +42,28 @@ test_shard_file_input() {
     assert_eq "$sout" "$fout" "shard: UNITS_FILE argument matches stdin input"
 }
 
-register test_shard_grouping test_shard_determinism test_shard_random test_shard_packing test_shard_empty test_shard_file_input
+test_shard_missing_file() {
+    cap "$SHARD" /no/such/units/file
+    assert_exit 2 "$RC" "shard: unreadable units file exits 2"
+    assert_not_contains "$OUT" "Traceback" "shard: missing file gives a clean error, not a traceback"
+}
+
+test_shard_bad_max_units() {
+    cap bash -c "printf '%s\n' 'u1 a' | '$SHARD' --max-units 0"
+    assert_exit 2 "$RC" "shard: --max-units 0 exits 2"
+}
+
+test_shard_duplicate_id() {
+    cap bash -c "printf '%s\n' 'u1 a.x' 'u1 b.x' | '$SHARD'"
+    assert_exit 2 "$RC" "shard: duplicate unit id exits 2"
+    assert_contains "$OUT" "duplicate unit id" "shard: duplicate id is reported"
+}
+
+test_shard_no_files() {
+    cap bash -c "printf '%s\n' 'u1' | '$SHARD'"
+    assert_exit 2 "$RC" "shard: a unit listing no written files exits 2"
+}
+
+register test_shard_grouping test_shard_determinism test_shard_random test_shard_packing \
+         test_shard_empty test_shard_file_input test_shard_missing_file \
+         test_shard_bad_max_units test_shard_duplicate_id test_shard_no_files
