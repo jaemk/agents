@@ -10,11 +10,12 @@
 # `git commit` (Bash) or a write to a prose/doc file (Write/Edit), it prints a JSON
 # object whose hookSpecificOutput.additionalContext carries the full voice profile plus
 # an instruction to apply it. For any other call it prints nothing and exits 0 (the tool
-# proceeds unchanged). It never blocks - a missing profile or parse error is a silent
-# no-op, never a wedged tool call.
+# proceeds unchanged). For git commits it emits decision:block so the message is reviewed
+# and revised before the commit lands; Write/Edit uses additionalContext (advisory).
+# A missing profile or parse error is a silent no-op, never a wedged tool call.
 #
 # Usage: voice-hook.sh < payload.json
-# Exit:  always 0 (advisory hook; never denies a tool).
+# Exit:  always 0.
 
 set -uo pipefail
 
@@ -26,6 +27,9 @@ input="$(cat)"
 tool="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)" || emit_nothing
 
 applies=0
+use_block=0
+cmd=""
+
 case "$tool" in
     Bash)
         cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
@@ -34,6 +38,7 @@ case "$tool" in
         # the failure we are fixing, so bias toward matching.
         if printf '%s' "$cmd" | grep -Eq '(^|[;&|[:space:]])git([[:space:]]|$).*commit'; then
             applies=1
+            use_block=1
         fi
         ;;
     Write|Edit)
@@ -58,10 +63,19 @@ fi
 profile="$(cat "$profile_file" 2>/dev/null)" || emit_nothing
 [[ -n "$profile" ]] || emit_nothing
 
-context="You are about to finalize writing for the user (a commit message, PR/issue text, or docs).
+if [[ "$use_block" -eq 1 ]]; then
+    # Block the commit so the message can be reviewed and revised before it lands.
+    # additionalContext fires before execution but the command (with the message
+    # already embedded) still runs immediately; decision:block actually stops it.
+    reason="git commit blocked for voice-profile review. Apply the profile to the commit message, revise if needed, then re-issue the command.
+
+$profile"
+    jq -n --arg reason "$reason" '{decision: "block", reason: $reason}'
+else
+    context="You are about to finalize writing for the user (a commit message, PR/issue text, or docs).
 Apply the user's writing voice. This profile is the single source of truth - follow it before the tool call lands:
 
 $profile"
-
-jq -n --arg ctx "$context" \
-    '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $ctx}}'
+    jq -n --arg ctx "$context" \
+        '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $ctx}}'
+fi
