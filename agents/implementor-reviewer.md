@@ -28,7 +28,9 @@ get them from the detector rather than guessing:
 
 Use the reported `test`/`lint` only to reason about whether a finding is real (e.g. "this
 would not compile", "this test cannot fail on the bug"). You are read-only: do not run
-mutating commands.
+mutating commands. If you must run the app/CLI to confirm a finding, use the project's
+`scripts/probe.sh` when present (the **`hermetic-verify`** pattern) rather than an
+env-prefixed one-off that triggers an approval prompt; do not create the runner (read-only).
 
 ## Severity
 

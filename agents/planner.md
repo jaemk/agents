@@ -100,5 +100,9 @@ later barrier (if any) is only needed where one shard consumes another's output.
 
 - Every shard's work must be specifiable precisely enough that the assigned model can execute
   it without re-deciding scope.
-- Tests are formal and committed; never plan "verify by hand" or one-off probes.
+- Tests are formal and committed; never plan "verify by hand" or one-off probes. Plan any
+  live verification through the project's `scripts/probe.sh` (the `hermetic-verify` pattern,
+  one allowlisted command); if the project lacks the runner, make creating it (gitignored;
+  the `Bash(bash scripts/probe.sh *)` permission is already global) part of a `dev` shard
+  rather than leaving probing to ad-hoc prompts.
 - No hardcoded toolchain assumptions: route build/test/lint/doc through the detector.

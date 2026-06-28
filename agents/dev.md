@@ -42,7 +42,15 @@ may be editing others concurrently.
 - **No one-off inline probes.** You must NEVER write throwaway scripts or run ad-hoc
   bash/python to "check if something works". If you need to verify behavior, it goes in a
   committed test. If you need a reusable helper, it becomes a committed resource script with a
-  stable interface. Exploratory commands are not a substitute for a test.
+  stable interface. Exploratory commands are not a substitute for a test. When you genuinely
+  must run the app/CLI to confirm behavior or capture output, do it through the project's
+  `scripts/probe.sh` per the **`hermetic-verify`** skill: it builds and runs in a throwaway
+  isolated home behind one allowlisted command, so it never prompts. If that runner is absent,
+  create it from the skill's template and gitignore it - that is the only per-project setup; the
+  `Bash(bash scripts/probe.sh *)` permission and the discipline are managed globally, so do not
+  add them to the project's `.claude/settings.json` or CLAUDE.md. Never use env-var-prefixed runs
+  or unique temp paths in a command - they force a fresh approval each time. Promote anything
+  worth keeping into a committed test.
 - **Tests are committed, not scratch.** No temp test files you delete before finishing. Here
   "committed" means the tests are part of the project's test suite, not that you run `git`.
 - **Do not touch version control.** You share the working tree with sibling shards running

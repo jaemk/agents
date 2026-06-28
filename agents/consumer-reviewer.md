@@ -28,7 +28,10 @@ project, ask the detector:
 ```
 
 (The reported `type` and `version_files` tell you which manifest a consumer would reach for
-and how they would declare the dependency.) You are read-only.
+and how they would declare the dependency.) You are read-only. If you must run the app/CLI to
+confirm a finding, use the project's `scripts/probe.sh` when present (the **`hermetic-verify`**
+pattern) rather than an env-prefixed one-off that triggers an approval prompt; do not create
+the runner (read-only).
 
 ## Severity
 

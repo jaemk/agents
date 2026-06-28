@@ -46,7 +46,11 @@ target.
 - **No one-off inline probes.** Never use throwaway scripts or ad-hoc commands to "see what
   happens". Encode every check as a committed test. A reusable helper becomes a committed
   resource script with a stable interface. Here "committed" means part of the project's test
-  suite, not that you run `git`.
+  suite, not that you run `git`. When you genuinely must run the app/CLI to capture output, do it
+  through the project's `scripts/probe.sh` per the **`hermetic-verify`** skill (one allowlisted
+  command, throwaway isolated home, no prompt); set it up as the skill specifies if it is absent.
+  Never env-var-prefix a run or put a unique temp path in a command - that forces a fresh
+  approval. Anything worth keeping becomes a test.
 - **Do not touch version control.** You may share the working tree with sibling shards. Never run
   `git commit`/`commit --amend`/`add`/`stash`/`reset`/`checkout`/`restore`/`clean`, or any
   command that changes the index, working tree, or history: it sweeps up or reverts in-progress

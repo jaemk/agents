@@ -43,7 +43,9 @@ A structured fix spec:
 
 - **Do not expand scope.** Touch only what the spec names.
 - **No one-off inline probes.** If verification is needed beyond the spec's test, it still goes
-  through a committed test, not an ad-hoc command.
+  through a committed test, not an ad-hoc command. If you must run the binary to verify, use the
+  project's `scripts/probe.sh` when present (the **`hermetic-verify`** pattern) rather than an
+  env-prefixed one-off; do not set up tooling or expand scope - if more is needed, report and stop.
 - **Do not touch version control.** You may share the working tree with sibling shards. Never
   run `git commit`/`commit --amend`/`add`/`stash`/`reset`/`checkout`/`restore`/`clean`, or any
   command that changes the index, working tree, or history: it sweeps up or reverts in-progress
