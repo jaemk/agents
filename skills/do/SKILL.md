@@ -2,6 +2,7 @@
 name: do
 description: Plan and (optionally) implement a change end to end through the agent chain. Infers mode from the prompt: a planning ask ("plan X", "design X", "how would you X") runs the planner and returns the plan plus shard table, advisory only; an implementation ask ("do X", "implement X", "build X", "add X") runs the full chain - the planner shards the work, fix-implementer/dev execute the shards, dev hands off to test, then the detected CI runs. Language-agnostic via detect-project.sh. Use for "do X", "implement X", "build X", "plan X".
 allowed-tools: Bash, Read, Edit, Write, Agent
+requires: skill:review
 ---
 
 # do
