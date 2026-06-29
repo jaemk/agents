@@ -53,8 +53,8 @@ Enumerate what a consumer actually sees:
 
 ### 2. Scaffold a throwaway external consumer
 
-- Put it in `$TMPDIR` (or another scratch path) - **never inside the repo, never in git**. Do
-  not pollute the project's examples/tests/working tree.
+- Put it in `./local/` (gitignored) - **never inside the repo proper, never in git**. Do
+  not pollute the project's examples/tests/working tree. Create `./local/` if it does not exist.
 - Depend on the library the way a real external project does, by local path with a realistic
   feature set:
   - Rust: `lib = { path = "/abs/path", features = [...] }`

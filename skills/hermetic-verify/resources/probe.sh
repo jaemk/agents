@@ -34,9 +34,10 @@ echo "probe.sh template not adapted: fill in BUILD and RUN" >&2
 exit 3
 # ---------------------------------------------------------------------------
 
-# A unique throwaway workdir. mktemp keeps concurrent probes from colliding; the
-# dynamism is contained here, not in the caller's command.
-work=$(mktemp -d "${TMPDIR:-/tmp}/probe.XXXXXX")
+# A unique throwaway workdir under ./local/ (gitignored). mktemp keeps concurrent
+# probes from colliding; the dynamism is contained here, not in the caller's command.
+mkdir -p "./local"
+work=$(mktemp -d "./local/probe.XXXXXX")
 cleanup() {
   if [ -n "${KEEP:-}" ]; then
     echo "probe: kept $work" >&2

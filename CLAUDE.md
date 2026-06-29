@@ -49,6 +49,13 @@ tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's
 - Edit the repo source and re-run `make install`; never hand-edit installed copies under
   `~/.agents` / `~/.claude`.
 - Resource scripts must keep their executable bit and a shebang (`x check` enforces this).
+- **Config changes** (CLAUDE.md, settings.json): edit `config/CLAUDE.md` or `config/settings.json`
+  here, then run `./x config apply` to push the changes to `~/.claude`. Never edit the live
+  `~/.claude` files directly without backing the change into `config/`.
+- **Agent/skill/tool/rule changes**: edit the project source files (`agents/`, `skills/`,
+  `resources/`), then run `mind upgrade --yes` to install the updated items.
+- **Temp files**: write them to `./local/` (already gitignored by the root `/*` whitelist), not
+  `/tmp`. Create subdirs under `./local/` as needed; they are automatically excluded from git.
 
 ## Conventions
 
