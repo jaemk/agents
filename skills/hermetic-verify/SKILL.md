@@ -1,6 +1,6 @@
 ---
 name: hermetic-verify
-description: The standard way to verify behavior in any project: encode the check as a formal hermetic test first, and run any unavoidable live check through one allowlisted runner (scripts/probe.sh) so it never triggers a per-run permission prompt. Use whenever you are about to run an app/CLI/binary to confirm something works, capture real output for docs, or reproduce a scenario by hand - especially when ad-hoc commands (env-var-prefixed runs, unique temp paths, command substitution) are forcing repeated approvals. Not for deciding what to assert (that is the test's job) or for changing app behavior. Language-agnostic. Use for "verify this works", "check the output", "reproduce X", or when probing generates approval prompts.
+description: 'The standard way to verify behavior in any project: encode the check as a formal hermetic test first, and run any unavoidable live check through one allowlisted runner (scripts/probe.sh) so it never triggers a per-run permission prompt. Use whenever you are about to run an app/CLI/binary to confirm something works, capture real output for docs, or reproduce a scenario by hand - especially when ad-hoc commands (env-var-prefixed runs, unique temp paths, command substitution) are forcing repeated approvals. Not for deciding what to assert (that is the test's job) or for changing app behavior. Language-agnostic. Use for "verify this works", "check the output", "reproduce X", or when probing generates approval prompts.'
 allowed-tools: Bash, Read, Edit, Write
 ---
 
@@ -45,17 +45,17 @@ agent that cannot write files skips creation and just uses an existing runner (s
    script is regenerated from the template (or kept locally) per checkout.
 
 3. **Do NOT re-add the runner permission per project - it is managed globally.**
-   `"Bash(bash scripts/probe.sh *)"` lives in `~/dev/agents/config/settings.json`, which is
-   merged into `~/.claude/settings.json` when mind installs the skills. The runner path is
-   identical in every project, so that one global entry already covers this project's runner.
+   `"Bash(bash scripts/probe.sh *)"` lives in the user's global `~/.claude/settings.json`. The
+   runner path is identical in every project, so that one global entry already covers this
+   project's runner.
    Only add a project's OWN stable build/test/lint commands (its detected test/ci command, from
    `{{tools:detect-project}}`) to its committed `.claude/settings.json` if they prompt - never
    per-path entries, and never the
    probe.sh entry. For settings.json edits the `update-config` skill applies.
 
 4. **Do NOT repeat the discipline in the project CLAUDE.md - it is managed globally.** The
-   verify-by-test-first rule and the runner's purpose live in `~/dev/agents/config/CLAUDE.md`,
-   merged into `~/.claude/CLAUDE.md`. At most add a one-line project-specific pointer (e.g. what
+   verify-by-test-first rule and the runner's purpose live in the user's global
+   `~/.claude/CLAUDE.md`. At most add a one-line project-specific pointer (e.g. what
    fixture the runner melds); do not restate the general guidance.
 
 ## 1. Default to a test

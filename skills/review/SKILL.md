@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review code changes and optionally fix the findings. Defaults to a read-only review of your local changes (diff vs the detected base branch): shards the diff, spawns implementor-reviewer, consumer-reviewer, and adversarial security-reviewer agents in parallel, and reports deduplicated findings with severity and a verdict. Add `pr [N]` to also pull a GitHub PR's review comments, `fix` to plan and apply fixes (mechanical -> fix-implementer, substantive -> dev then test), and `writeback` to resolve threads / minimize comments / re-request Copilot. Language-agnostic via detect-project.sh. Use for "review my changes", "review this PR", "review and fix", "address the PR comments".
+description: 'Review code changes and optionally fix the findings. Defaults to a read-only review of your local changes (diff vs the detected base branch): shards the diff, spawns implementor-reviewer, consumer-reviewer, and adversarial security-reviewer agents in parallel, and reports deduplicated findings with severity and a verdict. Add `pr [N]` to also pull a GitHub PR''s review comments, `fix` to plan and apply fixes (mechanical -> fix-implementer, substantive -> dev then test), and `writeback` to resolve threads / minimize comments / re-request Copilot. Language-agnostic via detect-project.sh. Use for "review my changes", "review this PR", "review and fix", "address the PR comments".'
 allowed-tools: Bash, Read, Edit, Write, Agent
 ---
 
@@ -171,6 +171,6 @@ hides pre-push comments (use `--dry-run` first to preview). Report what was reso
   `implementor-reviewer`/`consumer-reviewer`/`security-reviewer` -> `planner` ->
   `fix-implementer`/`dev` -> `test`.
 - Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)
-  that is allowlisted in `config/settings.json`, so no spawn ever blocks on a tool approval. A
-  sub-agent that stalls is a failed unit, not a wait - see step 7.
+  covered by a Bash allow rule (see `resources/allowlist.json`), so no spawn ever blocks on a
+  tool approval. A sub-agent that stalls is a failed unit, not a wait - see step 7.
 - Do not force-push or rewrite history unless explicitly asked.

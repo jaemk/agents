@@ -13,7 +13,7 @@ Usage:
   audit-shell-allowlist.py [--settings PATH] [PATH ...]
 
   --settings PATH  settings JSON whose .permissions.allow holds the Bash(...) rules
-                   (default: <repo>/config/settings.json)
+                   (default: <repo>/resources/allowlist.json)
   PATH ...         markdown files or dirs to scan (default: <repo>/agents <repo>/skills)
 
 Exit codes: 0 all covered, 1 one or more uncovered commands, 2 usage/IO error.
@@ -41,6 +41,11 @@ def load_allow_prefixes(settings_path):
         inner = m.group(1)
         # `cmd:*` means "cmd with any args"; a bare `cmd` is an exact match.
         inner = inner[:-2] if inner.endswith(":*") else inner
+        # `${HOME}` in a committed rule expands to the real home so the generic
+        # allowlist stays machine-independent. A leading `~` is left literal on
+        # purpose: Claude does not expand it, so a tilde rule genuinely does NOT
+        # cover an absolute-path command (see the token-expansion note below).
+        inner = inner.replace("${HOME}", str(Path.home()))
         prefixes.append(inner)
     return prefixes
 
@@ -157,7 +162,7 @@ def iter_md_files(paths):
 
 
 def main(argv):
-    settings = REPO / "config" / "settings.json"
+    settings = REPO / "resources" / "allowlist.json"
     scan = []
     i = 0
     while i < len(argv):

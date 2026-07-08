@@ -93,4 +93,5 @@ A short interactive loop to capture the gap between how I write and how the user
   `~/.local/share/agents/voice/voice-profile.md` - so writing tasks load it on demand and this
   file stays the single source of truth. Never copy the rules into CLAUDE.md. If that reference,
   or the settings.json read-allow for the voice dir (`Read(~/.local/share/agents/voice/**)`), is
-  missing, add it once in `config/` (then `x config apply`); do not duplicate the rules.
+  missing, add it once to the user's `~/.claude` config (CLAUDE.md / settings.json); do not
+  duplicate the rules.

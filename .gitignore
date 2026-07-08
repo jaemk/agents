@@ -14,13 +14,3 @@
 !/skills/
 !/resources/
 !/tests/
-
-# Config backups (user CLAUDE.md, settings.json, keybindings.json)
-!/config/
-
-# Only memory/ dirs under projects/ — never session transcripts or other data
-!/projects/
-/projects/*
-!/projects/*/
-/projects/*/*
-!/projects/*/memory/

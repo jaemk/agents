@@ -12,7 +12,6 @@
 #   status    [NAME ...] [--json]
 #   check     [NAME ...] [--strict]
 #   review    NAME [--fix] [--model ID] [--write-prompt]
-#   config    [diff|apply|pull|pull-allow]   sync config/ <-> live $CLAUDE_HOME
 #   help
 #
 # NAME is an item id: a bare name (matches an agent and/or skill of that name),
@@ -60,26 +59,6 @@ CHECK_WARNS=0
 # names used as cross-ecosystem examples (e.g. "Cargo.toml" or "do not hardcode cargo").
 GENERICITY_RE='(make ci|origin/master|cached_proc_macro|cargo (build|test|run|check|clippy|doc|readme|fmt|bench))'
 
-# Recursive JSON merge used by `config apply`: backup (.[1]) merged ONTO live (.[0]).
-# Objects merge key-by-key, arrays union (so live-only permission entries survive), and
-# scalars take the backup value. Live-only keys are preserved.
-JQ_DEEPMERGE='
-def deepmerge($a; $b):
-  if ($a|type)=="object" and ($b|type)=="object"
-  then reduce ($b|keys_unsorted[]) as $k ($a; .[$k] = deepmerge($a[$k]; $b[$k]))
-  elif ($a|type)=="array" and ($b|type)=="array"
-  then ($a + $b | unique)
-  else $b end;
-deepmerge(.[0]; .[1])'
-
-# Stable union used by `config pull-allow`: append the live permissions.allow entries the
-# backup lacks, preserving the backup's existing order (no sort churn). Input: [backup, live].
-JQ_ALLOW_MERGE='
-  .[0] as $b | .[1] as $l
-  | ($b.permissions.allow // []) as $ba
-  | ($l.permissions.allow // []) as $la
-  | $b | .permissions.allow = ($ba + ($la - $ba))'
-
 usage() {
     cat <<'EOF'
 usage: x <command> [NAME ...] [options]
@@ -90,7 +69,6 @@ commands:
   status     show per-item state (not-installed/up-to-date/needs-upgrade/drift)
   check      lint agent + skill files and their resources
   review     run an opus critique of one agent or skill (--fix applies the suggestions)
-  config     sync config/ backups with live $CLAUDE_HOME (config diff|apply|pull|pull-allow)
   help       show this message
 
 options:
@@ -529,112 +507,6 @@ cmd_check() {
     [[ $CHECK_FAILS -eq 0 ]]
 }
 
-# --- config -----------------------------------------------------------------
-# Sync the repo's config/ backups (the user's personal ~/.claude files) with the
-# live $CLAUDE_HOME. JSON files are merged (preserving live-only keys); other files
-# (e.g. CLAUDE.md) are overwritten. A timestamped-free `.bak` of the prior live file
-# is kept on every change.
-#
-# Directions: apply = backup -> live (deep merge); pull = live -> backup (overwrite);
-# pull-allow = live -> backup but ONLY the permissions.allow rules, by union, so allow
-# rules added live get backed up without dragging machine-specific live keys into config/.
-
-config_files() {
-    local f
-    shopt -s nullglob
-    for f in "$AGENTS_REPO"/config/*; do
-        [[ -f "$f" ]] && basename "$f"
-    done
-    shopt -u nullglob
-}
-
-config_apply_one() {
-    local name="$1" src="$AGENTS_REPO/config/$1" dst="$CLAUDE_HOME/$1"
-    mkdir -p "$CLAUDE_HOME"
-    case "$name" in
-        *.json)
-            if [[ ! -f "$dst" ]]; then cp -p "$src" "$dst"; echo "create   $name (no live file)"; return 0; fi
-            local tmp="$dst.tmp.$$"
-            jq -s "$JQ_DEEPMERGE" "$dst" "$src" > "$tmp" || { rm -f "$tmp"; die "jq merge failed for $name" 1; }
-            if jq -e --slurpfile cur "$dst" '. == $cur[0]' "$tmp" >/dev/null; then
-                rm -f "$tmp"; echo "ok       $name (already up-to-date)"; return 0
-            fi
-            cp -p "$dst" "$dst.bak"; mv "$tmp" "$dst"
-            echo "merge    $name -> live (backup: $name.bak)"
-            ;;
-        *)
-            if [[ -f "$dst" ]] && cmp -s "$src" "$dst"; then echo "ok       $name (already up-to-date)"; return 0; fi
-            [[ -f "$dst" ]] && cp -p "$dst" "$dst.bak"
-            cp -p "$src" "$dst"
-            echo "apply    $name -> live${dst:+}"
-            ;;
-    esac
-}
-
-config_diff_one() {
-    local name="$1" src="$AGENTS_REPO/config/$1" dst="$CLAUDE_HOME/$1"
-    if [[ ! -f "$dst" ]]; then echo "[create] $name (no live file yet)"; return 0; fi
-    case "$name" in
-        *.json)
-            local merged; merged="$(jq -s "$JQ_DEEPMERGE" "$dst" "$src")"
-            if diff -q <(jq -S . "$dst") <(printf '%s' "$merged" | jq -S .) >/dev/null; then
-                echo "[ok]     $name (apply would change nothing)"
-            else
-                echo "[change] $name (apply would merge in):"
-                diff <(jq -S . "$dst") <(printf '%s' "$merged" | jq -S .) | sed 's/^/    /' || true
-            fi
-            ;;
-        *)
-            if cmp -s "$src" "$dst"; then echo "[ok]     $name (identical)"
-            else echo "[change] $name (apply would overwrite live):"; diff "$dst" "$src" | sed 's/^/    /' || true; fi
-            ;;
-    esac
-}
-
-config_pull_one() {
-    local name="$1" src="$CLAUDE_HOME/$1" dst="$AGENTS_REPO/config/$1"
-    if [[ ! -f "$src" ]]; then echo "skip     $name (no live file to pull)"; return 0; fi
-    if cmp -s "$src" "$dst"; then echo "ok       $name (backup current)"; return 0; fi
-    cp -p "$src" "$dst"; echo "pull     $name (live -> config/)"
-}
-
-# Back up just the live allow rules into the repo config, by union (unlike `pull`, which
-# overwrites the whole file). Captures allow rules accumulated live so they are not lost,
-# without dragging machine-specific live-only keys into the committed backup.
-config_pull_allow_one() {
-    local name="$1" src="$CLAUDE_HOME/$1" dst="$AGENTS_REPO/config/$1"
-    case "$name" in *.json) ;; *) return 0 ;; esac   # only JSON settings carry allow rules
-    [[ -f "$src" ]] || { echo "skip     $name (no live file)"; return 0; }
-    [[ -f "$dst" ]] || { echo "skip     $name (no backup file)"; return 0; }
-    local n_live; n_live="$(jq '(.permissions.allow // []) | length' "$src" 2>/dev/null || echo 0)"
-    [[ "$n_live" -gt 0 ]] || { echo "ok       $name (no live allow rules)"; return 0; }
-    local tmp="$dst.tmp.$$"
-    jq -s "$JQ_ALLOW_MERGE" "$dst" "$src" > "$tmp" || { rm -f "$tmp"; die "jq allow-merge failed for $name" 1; }
-    if jq -e --slurpfile cur "$dst" '. == $cur[0]' "$tmp" >/dev/null; then
-        rm -f "$tmp"; echo "ok       $name (backup already has every live allow rule)"; return 0
-    fi
-    local added; added="$(jq -r -s '(.[1].permissions.allow // []) - (.[0].permissions.allow // []) | .[]' "$dst" "$src")"
-    mv "$tmp" "$dst"
-    echo "merge    $name (live allow -> config/): added $(printf '%s\n' "$added" | grep -c .) rule(s)"
-    printf '%s\n' "$added" | sed 's/^/         + /'
-}
-
-cmd_config() {
-    [[ -d "$AGENTS_REPO/config" ]] || die "no config/ directory in $AGENTS_REPO" 1
-    local action="${NAMES[0]:-diff}"
-    echo "config-dir:  $AGENTS_REPO/config"
-    echo "claude-home: $CLAUDE_HOME"
-    echo "---"
-    local name
-    case "$action" in
-        diff)  for name in $(config_files); do config_diff_one "$name"; done ;;
-        apply) for name in $(config_files); do config_apply_one "$name"; done ;;
-        pull)  for name in $(config_files); do config_pull_one "$name"; done ;;
-        pull-allow) for name in $(config_files); do config_pull_allow_one "$name"; done ;;
-        *) die "unknown config action '$action' (use: diff, apply, pull, pull-allow)" 2 ;;
-    esac
-}
-
 # --- review -----------------------------------------------------------------
 
 cmd_review() {
@@ -701,7 +573,7 @@ cmd_review() {
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            install|uninstall|status|check|review|config)
+            install|uninstall|status|check|review)
                 if [[ -z "$SUBCMD" ]]; then SUBCMD="$1"; else NAMES+=("$1"); fi ;;
             help|-h|--help) SUBCMD="help" ;;
             --agents-only) AGENTS_ONLY=1 ;;
@@ -732,7 +604,6 @@ main() {
         status)    cmd_status ;;
         check)     cmd_check ;;
         review)    cmd_review ;;
-        config)    cmd_config ;;
         *) die "unknown command: $SUBCMD" 2 ;;
     esac
 }

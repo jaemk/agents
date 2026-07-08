@@ -2,7 +2,7 @@
 # audit-shell-allowlist.py: every shell invocation in agent/skill prose must be
 # covered by a Bash(...) allow rule, so a spawned sub-agent never stalls on approval.
 
-# The real library must pass: scanning agents/ and skills/ against config/settings.json
+# The real library must pass: scanning agents/ and skills/ against resources/allowlist.json
 # finds no un-allowlisted command. This is the live invariant, not just a unit test.
 test_allowlist_real() {
     cap "$AUDIT"
@@ -69,6 +69,18 @@ test_allowlist_token_needs_absolute_rule() {
     assert_exit 0 "$RC" "allowlist: token cmd covered by absolute glob rule -> exit 0"
 }
 
+# A `${HOME}` rule in a committed allowlist expands to the real home at audit time, so an
+# absolute-path store command (a {{tools:}}/{{self}} token as Claude expands it at runtime)
+# is covered without hardcoding the machine's home path in the repo.
+test_allowlist_home_token_expands() {
+    local d; d="$(mktemp_d)"; mkdir -p "$d/skills/h"
+    printf '%s\n' '---' 'name: h' 'description: d' '---' '' '```bash' '{{tools:detect-project}} .' '```' \
+        > "$d/skills/h/SKILL.md"
+    local s="$d/settings.json"; printf '%s' '{"permissions":{"allow":["Bash(${HOME}/.mind/store/**/*)"]}}' > "$s"
+    cap "$AUDIT" --settings "$s" "$d/skills"
+    assert_exit 0 "$RC" "allowlist: \${HOME} rule covers the absolute store token -> exit 0"
+}
+
 register test_allowlist_real test_allowlist_detects_gap test_allowlist_covers_allowed \
     test_allowlist_pipes_builtins_comments test_allowlist_bad_settings \
-    test_allowlist_token_needs_absolute_rule
+    test_allowlist_token_needs_absolute_rule test_allowlist_home_token_expands

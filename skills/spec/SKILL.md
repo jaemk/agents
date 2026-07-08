@@ -1,6 +1,6 @@
 ---
 name: spec
-description: Adopt and maintain a spec-driven workflow: a repo-root spec/ dir with a feature-status table, per-topic docs with stable append-only IDs, and a document-first discipline (plan before build). Use for "set up a spec", "document this feature before building", "what spec work is left", "mark a feature done", or "check the spec for drift". Not for writing the implementation (use /do) or reviewing code against the spec (use /review). Five commands automate the mechanics: init, add, todo, set, sync.
+description: 'Adopt and maintain a spec-driven workflow: a repo-root spec/ dir with a feature-status table, per-topic docs with stable append-only IDs, and a document-first discipline (plan before build). Use for "set up a spec", "document this feature before building", "what spec work is left", "mark a feature done", or "check the spec for drift". Not for writing the implementation (use /do) or reviewing code against the spec (use /review). Five commands automate the mechanics: init, add, todo, set, sync.'
 allowed-tools: Bash, Read, Edit, Write, Agent
 ---
 

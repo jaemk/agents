@@ -1,8 +1,8 @@
 # agents - personal agents + skills library
 
 This repo holds reusable Claude Code agent profiles (`agents/`), skills (`skills/`), shared
-tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's personal
-`~/.claude` files (CLAUDE.md, settings.json) and is not part of the library.
+tooling (`resources/`), and a manager (`x`). The user's personal `~/.claude` backups live in a
+separate private repo (`agents-config`), not here.
 
 ## LOUD RULES (these are not optional)
 
@@ -20,7 +20,7 @@ tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's
 5. **No shell invocation that can block on approval.** Every command an agent or skill directs
    a (sub-)agent to run must be auto-approvable: a committed resource script (or a plain
    `git`/`jq`), with no `$(...)`, backticks, or `eval`, and covered by a `Bash(...)` rule in
-   `config/settings.json`. `resources/audit-shell-allowlist.py` enforces this (test:
+   `resources/allowlist.json`. `resources/audit-shell-allowlist.py` enforces this (test:
    `tests/cases/allowlist.sh`); when you add a skill/agent command, add its allow rule in the
    same change. Spawned agents declare a non-interactive `permissionMode` (`acceptEdits` for
    editors, `dontAsk` for read-only) so they never stall on a prompt. Orchestrators (`do`,
@@ -36,7 +36,8 @@ tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's
   `reviewer-prompt.md` (the `x review` template).
 - `x` - manager: install/uninstall/status/check/review (see `./x help`).
 - `tests/run.sh` - the hermetic test harness; `tests/lib.sh` assertions; `tests/fixtures/`.
-- `config/` - personal `~/.claude` backups (not installed by `x`).
+- `resources/allowlist.json` - the Bash allow rules the library needs, audited by
+  `resources/audit-shell-allowlist.py`.
 
 ## Workflow
 
@@ -49,9 +50,9 @@ tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's
 - Edit the repo source and re-run `make install`; never hand-edit installed copies under
   `~/.agents` / `~/.claude`.
 - Resource scripts must keep their executable bit and a shebang (`x check` enforces this).
-- **Config changes** (CLAUDE.md, settings.json): edit `config/CLAUDE.md` or `config/settings.json`
-  here, then run `./x config apply` to push the changes to `~/.claude`. Never edit the live
-  `~/.claude` files directly without backing the change into `config/`.
+- **Allow-rule changes**: when a new agent/skill command needs a Bash allow rule, add it to
+  `resources/allowlist.json` in the same change. Personal `~/.claude` config (CLAUDE.md,
+  settings.json) lives in the separate `agents-config` repo, not here.
 - **Agent/skill/tool/rule changes**: edit the project source files (`agents/`, `skills/`,
   `resources/`), then run `mind upgrade --yes` to install the updated items.
 - **Temp files**: write them to `./local/` (already gitignored by the root `/*` whitelist), not
@@ -60,4 +61,4 @@ tooling (`resources/`), and a manager (`x`). `config/` is a backup of the user's
 ## Conventions
 
 Follow the user's standing preferences (ASCII only, no em dashes, terse and factual, no
-`Co-Authored-By` lines). These are recorded in `config/CLAUDE.md`.
+`Co-Authored-By` lines). These are recorded in the user's `~/.claude/CLAUDE.md`.

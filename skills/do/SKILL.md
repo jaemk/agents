@@ -1,6 +1,6 @@
 ---
 name: do
-description: Plan and (optionally) implement a change end to end through the agent chain. Infers mode from the prompt: a planning ask ("plan X", "design X", "how would you X") runs the planner and returns the plan plus shard table, advisory only; an implementation ask ("do X", "implement X", "build X", "add X") runs the full chain - the planner shards the work, fix-implementer/dev execute the shards, dev hands off to test, then the detected CI runs. Language-agnostic via detect-project.sh. Use for "do X", "implement X", "build X", "plan X".
+description: 'Plan and (optionally) implement a change end to end through the agent chain. Infers mode from the prompt: a planning ask ("plan X", "design X", "how would you X") runs the planner and returns the plan plus shard table, advisory only; an implementation ask ("do X", "implement X", "build X", "add X") runs the full chain - the planner shards the work, fix-implementer/dev execute the shards, dev hands off to test, then the detected CI runs. Language-agnostic via detect-project.sh. Use for "do X", "implement X", "build X", "plan X".'
 allowed-tools: Bash, Read, Edit, Write, Agent
 requires: skill:review
 ---
@@ -61,8 +61,8 @@ Never wait indefinitely. A shard that returns nothing usable, reports an error, 
 example a sub-agent blocked on a tool-approval prompt that timed out) is a **failed shard**, not
 a reason to keep waiting. Surface the failure explicitly, then re-dispatch that shard once or
 abort the run with what completed - do not hang on a report that is not coming. Sub-agents should
-not need approvals: they invoke only committed resource scripts (allowlisted in `config/`), so a
-stall means something is wrong, not that you should wait longer.
+not need approvals: they invoke only committed resource scripts (covered by the Bash allow
+rules), so a stall means something is wrong, not that you should wait longer.
 
 ### 4. Verify
 
@@ -87,8 +87,8 @@ locally only if the user asked; do not push or open a PR unless asked.
   toolchain.
 - All tests are formal and committed (`dev`/`test`); never one-off inline probes.
 - Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)
-  that is allowlisted in `config/settings.json`, so no spawn ever blocks on a tool approval. A
-  sub-agent that stalls is a failed shard, not a wait - see step 3.
+  covered by a Bash allow rule (see `resources/allowlist.json`), so no spawn ever blocks on a
+  tool approval. A sub-agent that stalls is a failed shard, not a wait - see step 3.
 - Shards must be disjoint in their written files so executors can run concurrently without
   corrupting each other.
 - Do not force-push or rewrite history unless explicitly asked.

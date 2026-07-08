@@ -1,0 +1,20 @@
+{
+  "_comment": "The Bash allow rules the library's own agents/skills require to run without prompts. audit-shell-allowlist.py reads this to verify every command in agent/skill prose is auto-approvable. ${HOME} is expanded to the user's home at audit time (Claude matches Bash rules literally, so the live ~/.claude/settings.json must carry the resolved absolute path for the {{tools:}}/{{self}} store commands).",
+  "permissions": {
+    "allow": [
+      "Bash(jq:*)",
+      "Bash(~/.mind/store/**)",
+      "Bash(${HOME}/.mind/store/**/*)",
+      "Bash(git diff:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git --no-pager grep:*)",
+      "Bash(git ls-files:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh run view:*)",
+      "Bash(bash scripts/probe.sh *)",
+      "Bash(./scripts/probe.sh *)",
+      "Bash(bash ~/.mind/store/tool/**)"
+    ]
+  }
+}
