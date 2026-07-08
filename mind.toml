@@ -1,6 +1,6 @@
 [source]
 description = ""   # what this source offers
-# prefix = "prefix"   # namespace items as prefix-<name>
+prefix = "k"   # namespace items as prefix-<name>
 
 # Declare hooks that run when a consumer melds or unmelds this source.
 # Remove the leading `# ` to enable a hook.
