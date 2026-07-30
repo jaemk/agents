@@ -2,6 +2,7 @@
 name: review
 description: 'Review code changes and optionally fix the findings. Defaults to a read-only review of your local changes (diff vs the detected base branch): shards the diff, spawns implementor-reviewer, consumer-reviewer, and adversarial security-reviewer agents in parallel, and reports deduplicated findings with severity and a verdict. Add `pr [N]` to also pull a GitHub PR''s review comments, `fix` to plan and apply fixes (mechanical -> fix-implementer, substantive -> dev then test), and `writeback` to resolve threads / minimize comments / re-request Copilot. Language-agnostic via detect-project.sh. Use for "review my changes", "review this PR", "review and fix", "address the PR comments".'
 allowed-tools: Bash, Read, Edit, Write, Agent
+expand: resources/pr.py
 ---
 
 # review
