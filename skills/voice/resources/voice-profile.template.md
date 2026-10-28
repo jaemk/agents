@@ -1,15 +1,10 @@
 # Voice profile
 
-The user's writing voice, maintained by the `/voice` skill. Consult this whenever writing in
-the user's voice (commit messages, PR/issue text, docs, any prose the user will publish). The
-distilled rules below take precedence over generic defaults.
+The evidence behind the user's voice rules, maintained by the `/voice` skill. The rules
+themselves are in `voice-rules.md` next to this file, which is what gets applied when writing;
+this file is read only when the rules are refreshed.
 
 Last updated: (not yet populated - run `/voice mine`)
-
-## Distilled rules
-
-_The highest-signal, concrete rules to follow when writing as the user. Populated by `/voice
-mine`, refined by `/voice feedback` and `/voice train`._
 
 ## Observed patterns (from commit mining)
 

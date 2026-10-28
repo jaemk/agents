@@ -11,8 +11,7 @@ voice_hook() { # <xdg> <payload>
     OUT="$(printf '%s' "$2" | XDG_DATA_HOME="$1" "$VOICE_HOOK" 2>&1)"; RC=$?
 }
 seed_profile() { # <xdg>
-    local p; p="$(XDG_DATA_HOME="$1" "$VOICE_PATHS" --ensure)"
-    printf 'VOICE-SENTINEL-XYZ\n' >> "$p"
+    XDG_DATA_HOME="$1" "$VOICE_PATHS" --ensure >/dev/null
 }
 
 test_voice_mine() {
@@ -82,18 +81,45 @@ test_voice_paths() {
     assert_exit 2 "$RC" "voice-paths: unknown flag -> exit 2"
 }
 
+# The rules live in their own file (the part CLAUDE.md imports); --ensure seeds it next
+# to the profile and never overwrites it.
+test_voice_paths_rules() {
+    local xdg; xdg="$(mktemp_d)"
+    local r; r="$(XDG_DATA_HOME="$xdg" "$VOICE_PATHS" --rules)"
+    assert_eq "$xdg/agents/voice/voice-rules.md" "$r" "voice-paths --rules: resolves the rules file"
+    assert_no_path "$r" "voice-paths --rules: does not create it without --ensure"
+    r="$(XDG_DATA_HOME="$xdg" "$VOICE_PATHS" --rules --ensure)"
+    assert_file "$r" "voice-paths --rules --ensure: seeds the rules file"
+    assert_contains "$(cat "$r")" "Voice rules" "voice-paths --ensure: rules seeded from their template"
+    assert_file "$xdg/agents/voice/voice-profile.md" "voice-paths --ensure: seeds the profile too"
+    echo "MY RULE" >> "$r"
+    XDG_DATA_HOME="$xdg" "$VOICE_PATHS" --ensure >/dev/null
+    assert_contains "$(cat "$r")" "MY RULE" "voice-paths --ensure: never overwrites the rules file"
+}
+
+# The hook is a one-line reminder that names the rules file, not a copy of the rules.
 test_voice_hook_commit() {
     local xdg; xdg="$(mktemp_d)"; seed_profile "$xdg"
+    printf 'RULES-SENTINEL-XYZ\n' >> "$xdg/agents/voice/voice-rules.md"
     voice_hook "$xdg" '{"tool_name":"Bash","tool_input":{"command":"git commit -m \"x\""}}'
     assert_exit 0 "$RC" "voice hook: git commit -> exit 0"
     assert_contains "$OUT" '"hookEventName": "PreToolUse"' "voice hook: emits PreToolUse output"
-    assert_contains "$OUT" "VOICE-SENTINEL-XYZ" "voice hook: injects the profile content for a commit"
+    assert_contains "$OUT" "$xdg/agents/voice/voice-rules.md" "voice hook: names the rules file"
+    assert_not_contains "$OUT" "RULES-SENTINEL-XYZ" "voice hook: does not repeat the rules' content"
 }
 
 test_voice_hook_prose_write() {
     local xdg; xdg="$(mktemp_d)"; seed_profile "$xdg"
     voice_hook "$xdg" '{"tool_name":"Write","tool_input":{"file_path":"/tmp/README.md"}}'
-    assert_contains "$OUT" "VOICE-SENTINEL-XYZ" "voice hook: fires on a prose/doc write"
+    assert_contains "$OUT" "voice-rules.md" "voice hook: fires on a prose/doc write"
+}
+
+# A setup with only the older single-file profile still gets a reminder, naming it.
+test_voice_hook_profile_fallback() {
+    local xdg; xdg="$(mktemp_d)"; mkdir -p "$xdg/agents/voice"
+    printf '# Voice profile\n' > "$xdg/agents/voice/voice-profile.md"
+    voice_hook "$xdg" '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}'
+    assert_contains "$OUT" "voice-profile.md" "voice hook: falls back to the profile without a rules file"
 }
 
 test_voice_hook_skips_non_writing() {
@@ -119,5 +145,6 @@ test_voice_hook_degrades_safely() {
 }
 
 register test_voice_mine test_voice_mine_full test_voice_mine_default_author test_voice_mine_errors test_voice_paths \
-    test_voice_hook_commit test_voice_hook_prose_write test_voice_hook_skips_non_writing test_voice_hook_degrades_safely
+    test_voice_paths_rules test_voice_hook_commit test_voice_hook_prose_write test_voice_hook_profile_fallback \
+    test_voice_hook_skips_non_writing test_voice_hook_degrades_safely
 

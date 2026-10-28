@@ -71,7 +71,8 @@ Skills:
   allowlisted runner (`scripts/probe.sh`).
 - `consumer-experience-review` - audit a library by building a throwaway external consumer.
 - `voice` - learn and maintain the user's writing voice from commit history, feedback, and
-  draft/rewrite rounds. The profile lives at `~/.local/share/agents/voice/voice-profile.md`.
+  draft/rewrite rounds. The rules live at `~/.local/share/agents/voice/voice-rules.md` (imported
+  by `~/.claude/CLAUDE.md`), the evidence behind them in `voice-profile.md` next to it.
 
 ## Development
 

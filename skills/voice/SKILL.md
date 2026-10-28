@@ -1,36 +1,43 @@
 ---
 name: voice
-description: Learn and maintain the user's writing voice so anything written for them (commit messages, PR/issue text, docs) sounds like them. Three entrypoints inferred from the prompt - "mine" (default) analyzes the user's commit messages across all repos under ~/dev and refreshes the voice profile; "feedback" turns a comment about my writing into a durable voice rule; "train" runs a few rounds where I draft a snippet and the user rewrites it in their voice, then synthesizes the deltas into the profile. Use for "mine my voice", "update my voice profile", "learn my writing style", "/voice feedback ...", "/voice train".
+description: Learn and maintain the user's writing voice so anything written for them (commit messages, PR/issue text, docs, replies) sounds like them. Three entrypoints inferred from the prompt - "mine" (default) analyzes the user's commit messages across all repos under ~/dev and refreshes the voice rules; "feedback" turns a comment about my writing into a durable voice rule; "train" runs a few rounds where I draft a snippet and the user rewrites it in their voice, then synthesizes the deltas into the rules. Use for "mine my voice", "update my voice profile", "learn my writing style", "/voice feedback ...", "/voice train".
 allowed-tools: Bash, Read, Edit, Write
 ---
 
 # voice
 
-Build and maintain a profile of how the user writes, so I can write in their voice.
+Build and maintain a description of how the user writes, so I can write in their voice.
 
-The profile lives in the XDG data dir (NOT under `~/.claude`, so it can be granted read access
-in settings.json without exposing `~/.claude`):
-`${XDG_DATA_HOME:-~/.local/share}/agents/voice/voice-profile.md`. Resolve and create it with the
-resource script - never hardcode the path:
+It is two files in the XDG data dir (NOT under `~/.claude`, so they can be granted read access
+in settings.json without exposing `~/.claude`), under
+`${XDG_DATA_HOME:-~/.local/share}/agents/voice/`:
+
+- `voice-rules.md` - the distilled rules. This is what gets applied: `~/.claude/CLAUDE.md`
+  imports it, so it is in context for every session and is reloaded after a compaction. Keep
+  it to concrete rules; it costs context in every session.
+- `voice-profile.md` - the evidence behind the rules: observed patterns from mining,
+  before/after training pairs, and the feedback log. Only this skill reads it.
+
+Resolve and create them with the resource script - never hardcode the paths:
 
 ```bash
-{{self}}/resources/voice-paths.sh --ensure   # prints the path; seeds from template if missing
+{{self}}/resources/voice-paths.sh --ensure           # the profile path; seeds both files if missing
+{{self}}/resources/voice-paths.sh --rules --ensure   # the rules path
 ```
 
-It prints the resolved profile path. Read and edit the profile **at that printed path**; it is the single source of truth and is read by my
-global writing instructions. It is not part of the installed skill, so no `x install` is needed
-after updating it.
+Read and edit the files **at the printed paths**. They are not part of the installed skill, so
+nothing needs reinstalling after an update.
 
-The only mechanical steps (gathering commits, resolving the path) are resource scripts;
+The only mechanical steps (gathering commits, resolving the paths) are resource scripts;
 analysis, interpreting feedback, and synthesizing training deltas are the reasoning done here.
 
 ## Mode (inferred from the prompt)
 
-- **mine** (default) - analyze the corpus of the user's commit messages and refresh the
-  profile's Observed patterns and Distilled rules.
+- **mine** (default) - analyze the corpus of the user's commit messages, refresh the profile's
+  Observed patterns, and refine the rules.
 - **feedback `<comment>`** - the user gave a comment about my writing; turn it into a durable
   rule.
-- **train** - run a few draft/rewrite rounds, then fold the deltas into the profile.
+- **train** - run a few draft/rewrite rounds, then fold the deltas into the rules.
 
 Announce the resolved mode at the start.
 
@@ -53,10 +60,10 @@ Announce the resolved mode at the start.
    recurring verbs, and any consistent **conventions**. Note rough frequencies (e.g. "~70% use a
    conventional-commit prefix").
 
-3. Update the profile (at the path printed by `voice-paths.sh --ensure`): rewrite **Observed
-   patterns** from this run, and refine **Distilled rules** so they capture the dominant,
-   repeatable habits (not one-offs). Set the `Last updated` line. Keep rules concrete and
-   imperative ("lead the subject with a conventional-commit type"), not vague ("be concise").
+3. Rewrite the profile's **Observed patterns** from this run, then refine the rules file so it
+   captures the dominant, repeatable habits (not one-offs). Set the `Last updated` line in both.
+   Keep rules concrete and imperative ("lead the subject with a conventional-commit type"), not
+   vague ("be concise").
 
 ## feedback
 
@@ -65,8 +72,8 @@ body with 'This PR'").
 
 1. Translate the comment into one or more **concrete, testable rules** (what to do or avoid, and
    when).
-2. Add them to **Distilled rules** (merge with or supersede any conflicting existing rule -
-   newer feedback wins), and append a dated entry to the **Feedback log** with the original
+2. Add them to the rules file (merge with or supersede any conflicting existing rule - newer
+   feedback wins), and append a dated entry to the profile's **Feedback log** with the original
    comment and the rule it produced.
 3. If the feedback contradicts an Observed pattern, prefer the feedback and note the override.
 
@@ -81,39 +88,45 @@ A short interactive loop to capture the gap between how I write and how the user
    structure, word choice, length). State the delta back in one line to confirm.
 4. Repeat for **2-3 rounds**, varying the genre, to build a small corpus of pairs. Stop when the
    deltas start repeating (the signal has converged) or the user says stop.
-5. Synthesize: fold the recurring deltas into **Distilled rules**, and save the clearest pairs
-   under **Before / after examples** (prune weak or redundant ones). Append a Feedback-log entry
-   summarizing what the round taught.
+5. Synthesize: fold the recurring deltas into the rules file, and save the clearest pairs under
+   the profile's **Before / after examples** (prune weak or redundant ones). Append a
+   Feedback-log entry summarizing what the round taught.
 
-## Hook: apply the profile at write time
+## Wiring: keep the rules in effect
 
-`resources/voice-hook.sh` is a `PreToolUse` hook that puts the profile in context right before
-a `git commit` (Bash) or a write to a prose file (`.md`, `.txt`, `.rst`, commit/PR message
-files via Write or Edit). It only adds context and never blocks the call, and it does nothing
-when the profile is missing. Register it once in the user's `~/.claude/settings.json`:
+Two pieces of the user's `~/.claude` config apply the rules. Check both after any update and
+add whichever is missing (once; never copy the rules themselves into CLAUDE.md):
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash|Write|Edit",
-        "hooks": [{ "type": "command", "command": "{{self}}/resources/voice-hook.sh" }]
-      }
-    ]
-  }
-}
-```
+1. **The import.** `~/.claude/CLAUDE.md` has a line importing the rules file, so every session
+   starts with them in context and they are reloaded after a compaction:
 
-It fires on every matching call, so a session that edits many docs sees the profile each time.
+   ```
+   @~/.local/share/agents/voice/voice-rules.md
+   ```
 
-## After any update
+   settings.json also needs `Read(~/.local/share/agents/voice/**)` in its allow list.
 
-- The profile is edited in place in the XDG data dir, so there is nothing to `x install` for it
-  (the skill's scripts and template are installed; the profile is not).
-- CLAUDE.md only *references* this profile - one line under Technical writing pointing at
-  `~/.local/share/agents/voice/voice-profile.md` - so writing tasks load it on demand and this
-  file stays the single source of truth. Never copy the rules into CLAUDE.md. If that reference,
-  or the settings.json read-allow for the voice dir (`Read(~/.local/share/agents/voice/**)`), is
-  missing, add it once to the user's `~/.claude` config (CLAUDE.md / settings.json); do not
-  duplicate the rules.
+2. **The hook.** `resources/voice-hook.sh` is a `PreToolUse` hook that adds a one-line
+   reminder naming the rules file right before a `git commit` (Bash) or a write to a prose file
+   (`.md`, `.txt`, `.rst`, commit/PR message files via Write or Edit). It never blocks the call
+   and does nothing when neither file exists. Register it in `~/.claude/settings.json`:
+
+   ```json
+   {
+     "hooks": {
+       "PreToolUse": [
+         {
+           "matcher": "Bash|Write|Edit",
+           "hooks": [{ "type": "command", "command": "{{self}}/resources/voice-hook.sh" }]
+         }
+       ]
+     }
+   }
+   ```
+
+## Migrating a single-file profile
+
+An older profile keeps its rules under a `## Distilled rules` heading in `voice-profile.md`.
+Move that section's content into the rules file (seeded by `--rules --ensure`), drop the
+section from the profile, and point the CLAUDE.md import at the rules file. Until then the hook
+names the profile instead.
