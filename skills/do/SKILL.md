@@ -1,8 +1,8 @@
 ---
 name: do
-description: 'Plan and (optionally) implement a change end to end through the agent chain. Infers mode from the prompt: a planning ask ("plan X", "design X", "how would you X") runs the planner and returns the plan plus shard table, advisory only; an implementation ask ("do X", "implement X", "build X", "add X") runs the full chain - the planner shards the work, fix-implementer/dev execute the shards, dev hands off to test, then the detected CI runs. Language-agnostic via detect-project.sh. Use for "do X", "implement X", "build X", "plan X".'
+description: 'Plan and (optionally) implement a change end to end through the agent chain. Infers mode from the prompt: a planning ask ("plan X", "design X", "how would you X") runs the planner and returns the plan plus shard table, advisory only; an implementation ask ("do X", "implement X", "build X", "add X") runs the full chain - the planner shards the work, fix-implementer/dev execute the shards, dev hands off to test, then the detected CI runs. In a spec-driven project (a spec/ dir) the spec changes are planned with the code and the feature-status row is updated after CI. Add "and review" to run the review skill on the result. Language-agnostic via detect-project.sh. Use for "do X", "implement X", "build X", "plan X".'
 allowed-tools: Bash, Read, Edit, Write, Agent
-requires: skill:review
+requires: skill:review skill:spec
 ---
 
 # do
@@ -33,12 +33,19 @@ files for context and identify the project's commands (do not assume a toolchain
 {{tools:detect-project}} .
 ```
 
+If the project has a `spec/` (or `specs/`) dir, it is spec-driven (see the `spec` skill): the
+behavior is documented before it is built. Read `spec/README.md` and the relevant spec docs,
+and list where the goal's statements belong: existing IDs it changes, new IDs it needs (append
+only, never reuse a number), and the feature-status row it moves.
+
 ### 2. Plan (always)
 
-Spawn the `planner` agent with the goal, the acceptance criteria, and any constraints. It
-returns the plan and a **shard table**: disjoint written-file sets (no two shards touch the same
-file) with an **executor** and **model** per shard - `fix-implementer` for mechanical shards,
-`dev` (which hands off to `test`) for substantive ones.
+Spawn the `planner` agent with the goal, the acceptance criteria, any constraints, and (for a
+spec-driven project) the spec changes from step 1, which become part of the plan: the spec doc
+edits land with the code, and the tests that verify a new statement cite its ID the way the
+project's existing tests do. It returns the plan and a **shard table**: disjoint written-file
+sets (no two shards touch the same file) with an **executor** and **model** per shard -
+`fix-implementer` for mechanical shards, `dev` (which hands off to `test`) for substantive ones.
 
 In **plan** mode, present the planner's plan + shard table and stop here.
 
@@ -73,11 +80,23 @@ green:
 {{tools:detect-project}} . --run ci
 ```
 
-### 5. Report
+For a spec-driven project, then bring the feature-status table up to date with the `spec`
+skill: `set` the row to the legend's `done` value once the behavior is implemented and tested
+(or a partial value if only some of it landed), and run its `sync` command until it reports
+no missing or orphaned docs.
+
+### 5. Review (when asked)
+
+When the input asks for a review ("do X and review it"), run the `review` skill in its default
+local mode on the change once CI is green. It is read-only; carry any valid findings into the
+report, and re-dispatch them to the owning executor only if the input also asked to fix them.
+
+### 6. Report
 
 State the resolved mode, the plan summary, the shard table that ran (each shard's executor,
-model, and result), the `test` certifications, the CI result, and the files changed. Commit
-locally only if the user asked; do not push or open a PR unless asked.
+model, and result), the `test` certifications, the CI result, the spec rows changed, any review
+findings, and the files changed. Commit locally only if the user asked; do not push or open a
+PR unless asked.
 
 ## Discipline
 

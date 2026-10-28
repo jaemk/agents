@@ -1,18 +1,3 @@
 [source]
-description = ""   # what this source offers
-prefix = "k"   # namespace items as prefix-<name>
-
-# Declare hooks that run when a consumer melds or unmelds this source.
-# Remove the leading `# ` to enable a hook.
-#
-# [[hooks]]
-# run = "./x check"              # shell command to run
-# name = "Check"                 # optional label shown in the prompt
-# event = "install"             # "install" (default) or "uninstall"
-# optional = true              # true = warn on failure; false = fail the meld
-#
-# [[hooks]]
-# run = "make clean"            # optional cleanup hook run at unmeld time
-# name = "Cleanup"
-# event = "uninstall"
-# optional = true               # failure here just prints a warning
+description = "Agents and skills for planning, implementing, reviewing, and spec-driven work"
+prefix = "k"   # every item installs as k:<name>

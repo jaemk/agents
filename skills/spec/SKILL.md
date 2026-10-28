@@ -10,9 +10,14 @@ Manage a spec-driven workflow for any project. The spec lives in a `spec/` direc
 project root. Its `README.md` holds a feature-status table. Per-topic doc files carry stable
 append-only IDs (e.g. `AUTH-1`, `API-3`).
 
-Use this skill to keep each spec's status current: every feature carries one of three statuses,
-and the row is updated (via `set`) as the work moves. Check and maintain statuses as features
-are planned, researched, and shipped.
+Use this skill to keep each spec's status current: every feature carries a status, and the row
+is updated (via `set`) as the work moves. Check and maintain statuses as features are planned,
+researched, and shipped.
+
+The allowed statuses come from the legend in the project's `spec/README.md` (the sentence
+starting `Status values:`), so a project that already uses its own set (e.g. `planned` and
+`partial`) keeps it. `add` and `set` refuse a status the legend lacks, and `add` defaults to the
+first legend value that is not `done`. The legend `init` writes defines:
 
 - `done` - implemented and covered by tests.
 - `pending` - documented, not yet built. The default for a new spec.
@@ -52,12 +57,13 @@ Add a new feature spec doc and append a table row.
 
 Slugifies the name to `<slug>.md`, creates the doc with an H1 and a starter ID (`PREFIX-1`),
 and appends a row to the table. Exits 3 if the spec dir is not initialized or the file already
-exists. Default status is `pending`. Use `--status research` for a feature that still needs
-design, or `--status done` when back-filling an already-built feature.
+exists, and 2 for a status outside the legend. The default status is the legend's first value
+that is not `done` (`pending` in the `init` legend). Use `--status research` for a feature that
+still needs design, or `--status done` when back-filling an already-built feature.
 
 ### todo
 
-List specs not yet done (status `pending` or `research`).
+List specs not yet done (any status other than `done`).
 
 ```bash
 {{self}}/resources/spec.py todo PROJECT
@@ -77,10 +83,10 @@ keep statuses current as work moves.
 ```
 
 Rewrites the status cell of the matching row in place, preserving its spec link. Use it to move
-a row between `pending`, `research`, and `done`: flip to `done` after implementation and
-verification, or to `research` when a `pending` feature turns out to need design first. Exits 3
-if the spec dir is not initialized or no row matches the name. Do not hand-edit the table; the
-script keeps it canonical and parseable.
+a row between the legend's statuses: flip to `done` after implementation and verification, or to
+`research` when a `pending` feature turns out to need design first. Exits 3 if the spec dir is
+not initialized or no row matches the name, and 2 for a status outside the legend. Do not
+hand-edit the table; the script keeps it canonical and parseable.
 
 ### sync
 

@@ -85,6 +85,28 @@ A short interactive loop to capture the gap between how I write and how the user
    under **Before / after examples** (prune weak or redundant ones). Append a Feedback-log entry
    summarizing what the round taught.
 
+## Hook: apply the profile at write time
+
+`resources/voice-hook.sh` is a `PreToolUse` hook that puts the profile in context right before
+a `git commit` (Bash) or a write to a prose file (`.md`, `.txt`, `.rst`, commit/PR message
+files via Write or Edit). It only adds context and never blocks the call, and it does nothing
+when the profile is missing. Register it once in the user's `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [{ "type": "command", "command": "{{self}}/resources/voice-hook.sh" }]
+      }
+    ]
+  }
+}
+```
+
+It fires on every matching call, so a session that edits many docs sees the profile each time.
+
 ## After any update
 
 - The profile is edited in place in the XDG data dir, so there is nothing to `x install` for it

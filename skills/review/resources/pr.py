@@ -21,11 +21,13 @@ Commands (executed in the order given):
   rerequest    Re-request Copilot review
   minimize     Minimize (hide) all eligible pre-push comments as "resolved"
   ci           Run the detected CI/test command; exit non-zero on real failures
-  readme       Run the detected README generator (if any)
+  readme       Run the detected README generator (if any); leaves README.md
+               unchanged when the output is under half its lines
+               (a hand-written README), unless --force-readme
   pushpreview  Print the git log + diff --stat push preamble for the current branch
   diff         Print `git diff <base>` (for handing to reviewer agents)
   units        Print one `<file>\t<file>` unit line per changed file vs <base>
-               (the review-unit inventory; pipe straight into shard-plan.py)
+               (the review-unit inventory; --out FILE writes it for shard-plan.py)
   prnumber     Print the PR number for the current branch (via `gh pr view`)
 
 Options:
@@ -38,6 +40,8 @@ Options:
   --readme-cmd CMD  Override the detected README command (for `readme`)
   --ignore REGEX    For `ci`: tolerate failure lines matching this regex (repeatable)
   --dry-run         For resolve/minimize: list targets without mutating
+  --out FILE        For `units`: write the unit lines to FILE instead of stdout
+  --force-readme    For `readme`: overwrite README.md even when the output is much shorter
 """
 
 import argparse
@@ -377,21 +381,39 @@ def cmd_ci(ci_cmd=None, ignore=()):
 # readme
 # ---------------------------------------------------------------------------
 
-def cmd_readme(readme_cmd=None):
+def shrinks(old, new):
+    # A regenerated README under half the existing line count is a generator
+    # replacing a hand-written README, not a refresh of a generated one.
+    old_n = len(old.splitlines())
+    return old_n > 0 and len(new.splitlines()) * 2 < old_n
+
+
+def cmd_readme(readme_cmd=None, force=False):
     section("README")
     cmd = readme_cmd or detect("readme")
     if not cmd:
         print("No README generator detected; skipping.")
         return
+    readme = Path("README.md")
+    before = readme.read_text() if readme.exists() else None
     print(f"Running: {cmd}")
     r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if r.returncode != 0:
         print(f"README generator failed (exit {r.returncode}):")
         print(r.stderr)
+        if before is not None:
+            readme.write_text(before)
         sys.exit(r.returncode)
+    # The generator either prints the README or writes it in place.
+    after = r.stdout if r.stdout.strip() else (readme.read_text() if readme.exists() else "")
+    if before is not None and not force and shrinks(before, after):
+        readme.write_text(before)
+        print(f"Skipped: the generator output has {len(after.splitlines())} line(s), under half of "
+              f"README.md's {len(before.splitlines())}; README.md left unchanged "
+              "(pass --force-readme to overwrite).")
+        return
     if r.stdout.strip():
-        with open("README.md", "w") as f:
-            f.write(r.stdout)
+        readme.write_text(r.stdout)
         print("README.md regenerated from generator stdout.")
     else:
         print("README generator ran (no stdout; assumed to write in place).")
@@ -450,16 +472,22 @@ def cmd_diff(base):
 # units
 # ---------------------------------------------------------------------------
 
-def cmd_units(base):
+def cmd_units(base, out=None):
     # The review-unit inventory: one unit per changed file, emitted as the
     # `UNIT_ID<TAB>FILE` lines that shard-plan.py consumes (id == file). Output is
-    # bare (no section header) so it pipes straight into the sharder. Atomic
-    # couplings can be merged onto one line by the caller before sharding.
+    # bare (no section header). With --out the lines go to a file instead, which
+    # shard-plan.py takes as an argument, so no pipe is needed. Atomic couplings
+    # can be merged onto one line by the caller before sharding.
     r = subprocess.run(["git", "diff", "--name-only", base], capture_output=True, text=True)
-    for f in r.stdout.splitlines():
-        f = f.strip()
-        if f:
-            print(f"{f}\t{f}")
+    lines = [f"{f.strip()}\t{f.strip()}" for f in r.stdout.splitlines() if f.strip()]
+    if out is None:
+        for line in lines:
+            print(line)
+        return
+    path = Path(out)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(line + "\n" for line in lines))
+    print(f"Wrote {len(lines)} unit(s) to {path}")
 
 
 # ---------------------------------------------------------------------------
@@ -497,6 +525,9 @@ def main():
     ap.add_argument("--ignore", action="append", default=[],
                     help="ci: tolerate failure lines matching this regex (repeatable)")
     ap.add_argument("--dry-run", action="store_true", help="resolve/minimize: list without mutating")
+    ap.add_argument("--out", help="units: write the unit lines to this file instead of stdout")
+    ap.add_argument("--force-readme", action="store_true",
+                    help="readme: overwrite README.md even when the output is much shorter")
     args = ap.parse_args()
 
     tokens = list(args.tokens)
@@ -538,13 +569,13 @@ def main():
         elif cmd == "ci":
             cmd_ci(ci_cmd=args.ci_cmd, ignore=args.ignore)
         elif cmd == "readme":
-            cmd_readme(readme_cmd=args.readme_cmd)
+            cmd_readme(readme_cmd=args.readme_cmd, force=args.force_readme)
         elif cmd == "pushpreview":
             cmd_pushpreview(branch=args.branch)
         elif cmd == "diff":
             cmd_diff(base)
         elif cmd == "units":
-            cmd_units(base)
+            cmd_units(base, out=args.out)
         elif cmd == "prnumber":
             cmd_prnumber()
 

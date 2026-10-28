@@ -125,7 +125,12 @@ case "$type" in
         test="cargo test"
         lint="cargo clippy --all-targets"
         doc="cargo doc --no-deps"
-        command -v cargo-readme >/dev/null 2>&1 && readme="cargo readme"
+        # A generated README is opt-in: cargo-readme's README.tpl marks a crate
+        # whose README.md comes from its doc comment. Without it the README is
+        # hand-written and regenerating it would replace it.
+        if [[ -f "$root/README.tpl" ]] && command -v cargo-readme >/dev/null 2>&1; then
+            readme="cargo readme"
+        fi
         version_files="Cargo.toml"
         ci="${make_ci:-$test}"
         ;;

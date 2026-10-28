@@ -28,7 +28,8 @@ prnumber`. The local ones (`ci readme pushpreview diff units prnumber`) take no 
   Read-only.
 - **pr [N]** - also fetch PR #N's review comments and fold them into the findings. If N is
   omitted, infer it from the current branch with `pr.py prnumber`.
-- **fix** - after reviewing, plan and apply fixes, run the detected tests, and commit/push.
+- **fix** - after reviewing, plan and apply fixes, run the detected tests, and commit. Push
+  only when the input asks for it or writeback mode is on.
 - **writeback** - after pushing fixes, resolve threads, minimize prior comments, and re-request
   Copilot review. Implies a PR target.
 
@@ -73,17 +74,18 @@ A unit can be in more than one set.
 Use the shared sharder rather than hand-rolling the shuffle/pack. Feed it the changed files as
 units (one per line: a unit id then the files it covers); it randomizes the order and packs
 them into shards, varying each file's neighbors each run so reviewers surface different
-cross-cutting issues. Keep atomic couplings (a file and its paired golden/snapshot) on a single
-unit line so they stay together:
+cross-cutting issues. Write the units to a file, then pass the file to the sharder (two
+separate commands, never a pipe, so neither prompts for approval):
 
 ```bash
-{{self}}/resources/pr.py units \
-  | {{tools:shard-plan}} --max-units 5
+{{self}}/resources/pr.py units --out ./local/review-units.txt
+{{tools:shard-plan}} --max-units 5 ./local/review-units.txt
 ```
 
-`pr.py units` emits the baseline review-unit inventory (one `<file>\t<file>` line per changed
-file vs the detected base; pass `--base` to override). Merge any atomic-coupling lines before
-the pipe when you want a file and its paired golden/snapshot to stay in one unit.
+`pr.py units` writes the baseline review-unit inventory (one `<file>\t<file>` line per changed
+file vs the detected base; pass `--base` to override). Between the two commands, edit the file
+to merge atomic couplings (a file and its paired golden/snapshot) onto one unit line so they
+stay together.
 
 Pick `--max-units` from the review-agent model (sonnet: ~5 units/shard; opus: ~12). Shard the
 code set, consumer set, and security set independently. Each output line is one shard:
@@ -145,11 +147,18 @@ detected CI and regenerate the README if applicable:
 {{self}}/resources/pr.py readme
 ```
 
-Commit, show the push preamble, then push:
+`readme` runs only for a project that opts into a generated README (the detector reports a
+generator command), and it leaves `README.md` unchanged when the output is under half its
+current lines, which means the README is hand-written. Check `git diff --stat` before
+committing either way.
+
+Commit the fixes. Write the message in the user's voice (see their voice profile and the repo's
+existing subjects): describe what changed in the code, not the review that found it. Then show
+the push preamble, and push only when the input asked for a push or writeback mode is on:
 
 ```bash
+git commit -m "<subject describing the fixes>"
 {{self}}/resources/pr.py pushpreview
-git commit -m "fix: address review findings"
 git push
 ```
 

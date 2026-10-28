@@ -1,6 +1,7 @@
 ---
 name: consumer-experience-review
 description: Review a library/package from the perspective of an external downstream consumer. Build a throwaway project that depends on it the way a real user would, exercise the public API with naive-but-reasonable code, and surface gaps, inconsistencies, and inconveniences with tool-verified evidence (a captured compiler/type/import error, not an assertion). Language-agnostic. Use for "review the consumer/user experience", "find API gaps", "evaluate the public API", "is this ready to publish", or before a 1.0 / major release.
+allowed-tools: Bash, Read, Edit, Write
 ---
 
 # Consumer-experience review
@@ -53,8 +54,11 @@ Enumerate what a consumer actually sees:
 
 ### 2. Scaffold a throwaway external consumer
 
-- Put it in `./local/` (gitignored) - **never inside the repo proper, never in git**. Do
-  not pollute the project's examples/tests/working tree. Create `./local/` if it does not exist.
+- Put it in `./local/consumer/` (gitignored) - **never inside the repo proper, never in git**.
+  Do not pollute the project's examples/tests/working tree. Create `./local/` if it does not
+  exist. The detector walks up to the nearest project marker, so give the consumer its own
+  manifest (`Cargo.toml`, `package.json`, `pyproject.toml`) before building it, or it resolves
+  to the library itself.
 - Depend on the library the way a real external project does, by local path with a realistic
   feature set:
   - Rust: `lib = { path = "/abs/path", features = [...] }`
@@ -74,11 +78,13 @@ Deliberately reach for conventions first:
 
 ### 4. Build / run / capture exact errors
 
-Get the build and test commands from the detector rather than assuming them:
+Build and test the consumer through the detector rather than assuming a toolchain. `--run`
+resolves the command and runs it in the consumer's root, so no command string is copied into a
+new shell call:
 
 ```bash
-{{tools:detect-project}} <consumer-dir> --what build
-{{tools:detect-project}} <consumer-dir> --what test
+{{tools:detect-project}} ./local/consumer --run build
+{{tools:detect-project}} ./local/consumer --run test
 ```
 
 For every failure, record the **exact** diagnostic - the error code and message (Rust

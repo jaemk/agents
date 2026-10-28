@@ -22,6 +22,23 @@ test_pr_readme() {
     assert_eq "GENERATED-README" "$(cat "$d/README.md")" "pr.py readme: README.md has generator output"
 }
 
+# A generator whose output is under half the existing README is replacing a
+# hand-written one: README.md is left as it was, whether the generator prints it
+# or writes it in place, unless --force-readme.
+test_pr_readme_keeps_handwritten() {
+    local d; d="$(mktemp_d)"
+    printf 'line %s\n' 1 2 3 4 5 6 > "$d/README.md"
+    local orig; orig="$(cat "$d/README.md")"
+    cap_cd "$d" "$PR_PY" readme --readme-cmd 'echo STUB'
+    assert_exit 0 "$RC" "pr.py readme shrink: exit 0"
+    assert_contains "$OUT" "README.md left unchanged" "pr.py readme shrink: reports the skip"
+    assert_eq "$orig" "$(cat "$d/README.md")" "pr.py readme shrink: stdout output does not overwrite"
+    cap_cd "$d" "$PR_PY" readme --readme-cmd 'echo STUB > README.md'
+    assert_eq "$orig" "$(cat "$d/README.md")" "pr.py readme shrink: in-place write is restored"
+    cap_cd "$d" "$PR_PY" readme --readme-cmd 'echo STUB' --force-readme
+    assert_eq "STUB" "$(cat "$d/README.md")" "pr.py readme --force-readme: overwrites"
+}
+
 test_pr_diff_pushpreview() {
     local g; g="$(mktemp_d)"; mk_git_repo "$g"
     cap_cd "$g" "$PR_PY" diff
@@ -73,6 +90,13 @@ test_pr_units() {
     cap_cd "$g" "$PR_PY" units
     assert_exit 0 "$RC" "pr.py units: exit 0"
     assert_contains "$OUT" "f.txt"$'\t'"f.txt" "pr.py units: emits one <file>\\t<file> unit line per changed file"
+    cap_cd "$g" "$PR_PY" units --out local/units.txt
+    assert_exit 0 "$RC" "pr.py units --out: exit 0"
+    assert_contains "$OUT" "Wrote 1 unit(s)" "pr.py units --out: reports the count"
+    assert_eq "f.txt"$'\t'"f.txt" "$(cat "$g/local/units.txt")" "pr.py units --out: writes the unit lines, creating the dir"
+    cap "$SHARD" --max-units 5 "$g/local/units.txt"
+    assert_exit 0 "$RC" "pr.py units --out: the file feeds shard-plan as an argument"
+    assert_contains "$OUT" "f.txt" "pr.py units --out: shard-plan reads the unit"
 }
 
 test_pr_prnumber() {
@@ -90,4 +114,4 @@ test_pr_argval() {
     assert_contains "$OUT" "PR number is required" "pr.py: explains the PR requirement"
 }
 
-register test_pr_ci test_pr_readme test_pr_diff_pushpreview test_pr_comments test_pr_threads test_pr_resolve test_pr_rerequest test_pr_minimize test_pr_units test_pr_prnumber test_pr_argval
+register test_pr_ci test_pr_readme test_pr_readme_keeps_handwritten test_pr_diff_pushpreview test_pr_comments test_pr_threads test_pr_resolve test_pr_rerequest test_pr_minimize test_pr_units test_pr_prnumber test_pr_argval

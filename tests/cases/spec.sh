@@ -480,6 +480,45 @@ test_spec_set_requires_status() {
 }
 
 # ---------------------------------------------------------------------------
+# statuses come from the README legend
+# ---------------------------------------------------------------------------
+
+# A project whose legend names other statuses (planned/partial) keeps them: add
+# defaults to the first non-done value, and a status outside the legend is refused.
+mk_custom_legend() { # <dir>
+    mkdir -p "$1/spec"
+    printf '%s\n' '# Spec' '' '## Feature status' '' \
+        'Every feature is listed here. Status' \
+        'values: `done` (implemented and covered by tests), `planned` (documented, not yet' \
+        'built), `partial` (incomplete). Mark a feature `done` only once it is tested.' '' \
+        '| Feature | Status | Spec |' '|---------|--------|------|' > "$1/spec/README.md"
+}
+
+test_spec_legend_custom_statuses() {
+    local d; d="$(mktemp_d)"; mk_custom_legend "$d"
+    cap "$SPEC_PY" add "Alpha" "$d"
+    assert_exit 0 "$RC" "spec legend: add with no --status exit 0"
+    assert_contains "$(< "$d/spec/README.md")" "| Alpha | planned |" "spec legend: default is the first non-done legend value"
+    cap "$SPEC_PY" set "Alpha" "$d" --status partial
+    assert_exit 0 "$RC" "spec legend: set to a legend value exit 0"
+    assert_contains "$(< "$d/spec/README.md")" "| Alpha | partial |" "spec legend: set writes the legend value"
+    cap "$SPEC_PY" set "Alpha" "$d" --status pending
+    assert_exit 2 "$RC" "spec legend: set to a value outside the legend -> exit 2"
+    assert_contains "$OUT" "allows: done, planned, partial" "spec legend: names the allowed values"
+    cap "$SPEC_PY" add "Beta" "$d" --status research
+    assert_exit 2 "$RC" "spec legend: add with a value outside the legend -> exit 2"
+    assert_no_path "$d/spec/beta.md" "spec legend: refused add writes no doc"
+}
+
+test_spec_legend_default_template() {
+    local d; d="$(mktemp_d)"
+    cap "$SPEC_PY" init "$d"
+    cap "$SPEC_PY" add "Alpha" "$d" --status bogus
+    assert_exit 2 "$RC" "spec legend default: unknown status -> exit 2"
+    assert_contains "$OUT" "allows: done, pending, research" "spec legend default: the template legend's values"
+}
+
+# ---------------------------------------------------------------------------
 # dispatch: unknown command and no-arg
 # ---------------------------------------------------------------------------
 
@@ -533,5 +572,7 @@ register \
     test_spec_set_no_match \
     test_spec_set_uninitialized \
     test_spec_set_requires_status \
+    test_spec_legend_custom_statuses \
+    test_spec_legend_default_template \
     test_spec_unknown_command \
     test_spec_no_args

@@ -14,10 +14,10 @@ skills/<name>/SKILL.md      skills, with optional skills/<name>/resources/ helpe
 tools/<name>/               mind tools: shared scripts referenced via {{tools:<name>}}
                             (detect-project, shard-plan)
 resources/                  other shared files: reviewer-prompt.md, audit-shell-allowlist.py
-mind.toml                   mind source manifest (install hook)
+resources/allowlist.json    Bash allow rules the library needs (audited by the tests)
+mind.toml                   mind source manifest (prefix k)
 x                           the manager (lint/review)
 tests/run.sh                hermetic test harness (no network, uses temp dirs)
-resources/allowlist.json    Bash allow rules the library needs (audited on every check)
 ```
 
 ## Install
@@ -31,22 +31,17 @@ mind meld jaemk/agents               # shorthand for the GitHub remote
 ```
 
 `mind meld` clones and registers the source and installs its items (skills, agents, tools - found
-by convention plus `mind.toml`). Use `mind learn <item>` to install a single item, `mind recall`
-to see what is installed, and `mind sync --upgrade` to pull updates. See the mind README for the
-full command set.
-
-Under the hood mind copies each item into its store and symlinks it into each agent home
-(`~/.claude` by default) so Claude discovers it.
+by convention plus `mind.toml`). Every item installs under the `k:` prefix (`k:review`,
+`k:do`). Use `mind learn <item>` to install a single item, `mind recall` to see what is
+installed, and `mind sync --upgrade` to pull updates. See the mind README for the full command
+set.
 
 ## Using `x`
 
 ```bash
-./x install              # install everything (idempotent; skips unchanged items)
-./x install review       # install one item by name
-./x status               # show per-item state: not-installed / up-to-date / needs-upgrade / drift
 ./x check                # lint agent + skill files and their resources (warnings allowed)
 ./x check --strict       # treat genericity warnings as failures
-./x uninstall review     # remove an item's symlink and copy (never touches real user files)
+./x status               # show per-item state: not-installed / up-to-date / needs-upgrade / drift
 ./x review skill:review  # run an opus critique of an item against resources/reviewer-prompt.md
 ./x review skill:review --fix   # apply the critique's suggestions in place
 ./x help
@@ -58,34 +53,35 @@ name, `x` operates on everything.
 ## Contents
 
 Agents:
-- `implementor-reviewer` - read-only review from the author's perspective.
-- `consumer-reviewer` - read-only review from the downstream user's perspective.
 - `planner` - designs plans and shards work across disjoint agents with model tiers (randomized).
 - `dev` - implements with formal tests; always hands off to `test`.
 - `test` - certifies and improves coverage from outside the implementor's perspective.
 - `fix-implementer` - applies an explicit fix spec verbatim.
+- `implementor-reviewer` - read-only review from the author's perspective.
+- `consumer-reviewer` - read-only review from the downstream user's perspective.
+- `security-reviewer` - read-only adversarial review for exploitable vulnerabilities.
 
 Skills:
 - `do` - plan and (optionally) implement a change end to end: planner -> fix-implementer/dev ->
-  test -> CI. Plans only, or plans and builds, depending on the prompt.
+  test -> CI. Plans the spec changes too in a spec-driven project.
 - `review` - review local changes and/or a GitHub PR; optionally fix findings and write back.
-- `release` - bump versions, update changelog/migration guide, regenerate README, or run a
-  pre-release review.
+- `spec` - set up and maintain a `spec/` dir: a feature-status table and per-topic docs with
+  stable IDs.
+- `hermetic-verify` - verify behavior with a committed test first, and probe through one
+  allowlisted runner (`scripts/probe.sh`).
 - `consumer-experience-review` - audit a library by building a throwaway external consumer.
-- `voice` - learn and maintain the user's writing voice: mine commit messages across `~/dev`,
-  fold in feedback, and run draft/rewrite training rounds. The profile lives in the XDG data dir
-  (`~/.local/share/agents/voice/voice-profile.md`), scope-allowed in settings.json, and CLAUDE.md
-  references it so writing tasks load it on demand.
+- `voice` - learn and maintain the user's writing voice from commit history, feedback, and
+  draft/rewrite rounds. The profile lives at `~/.local/share/agents/voice/voice-profile.md`.
 
 ## Development
 
-Edit the source here and re-meld (`mind meld .`) to reinstall. Never hand-edit installed copies.
-Before committing changes to `x` or any resource script, run the harness:
+Edit the source here, then run `mind upgrade --yes` to install the changes. Never hand-edit
+installed copies.
 
 ```bash
-bash tests/run.sh
+make check               # x check
+make test                # the hermetic harness: every x subcommand and resource script
 ```
 
-It is hermetic (temp dirs, no network) and exercises every `x` subcommand and every resource
-script. See `CLAUDE.md` for the project rules (all logic in resource scripts, no one-off
-probes, all testing committed, language-agnostic via the detector).
+See `CLAUDE.md` for the project rules (all logic in resource scripts, no one-off probes, all
+testing committed, language-agnostic via the detector).

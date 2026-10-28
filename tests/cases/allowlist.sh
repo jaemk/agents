@@ -31,15 +31,41 @@ test_allowlist_covers_allowed() {
     assert_exit 0 "$RC" "allowlist: an allowlisted script invocation -> exit 0"
 }
 
-# Builtins, piped segments, line continuations, and inline comments are all handled.
-test_allowlist_pipes_builtins_comments() {
+# Builtins, line continuations, inline comments, and operators inside quotes are handled.
+test_allowlist_builtins_continuations_comments() {
     local d; d="$(mktemp_d)"; mkdir -p "$d/agents"
     printf '%s\n' '---' 'name: z' 'model: opus' 'tools: Bash' 'description: d' '---' 'body' '' \
-        '```bash' 'printf "a b" \' '  | ~/.agents/resources/shard-plan.py --max-units 4   # inline comment' '```' \
+        '```bash' 'printf "a | b; c"' '~/.agents/resources/shard-plan.py \' '  --max-units 4 units.txt   # inline comment' \
+        'git commit -m "fix a && b"' '```' \
         > "$d/agents/z.md"
-    local s="$d/settings.json"; printf '%s' '{"permissions":{"allow":["Bash(~/.agents/resources/shard-plan.py:*)"]}}' > "$s"
+    local s="$d/settings.json"
+    printf '%s' '{"permissions":{"allow":["Bash(~/.agents/resources/shard-plan.py:*)","Bash(git commit:*)"]}}' > "$s"
     cap "$AUDIT" --settings "$s" "$d/agents"
-    assert_exit 0 "$RC" "allowlist: builtin + pipe + continuation + comment -> exit 0"
+    assert_exit 0 "$RC" "allowlist: builtin + continuation + comment + quoted operators -> exit 0"
+}
+
+# A pipe, a chain, or command substitution prompts even when every part is allowlisted.
+test_allowlist_flags_compound_commands() {
+    local d; d="$(mktemp_d)"; mkdir -p "$d/skills/c"
+    printf '%s\n' '---' 'name: c' 'description: d' '---' '' '```bash' \
+        'jq . a.json | jq .x' 'jq . a.json && jq . b.json' 'jq . a.json; jq . b.json' 'jq "$(jq . a.json)"' '```' \
+        > "$d/skills/c/SKILL.md"
+    local s="$d/settings.json"; printf '%s' '{"permissions":{"allow":["Bash(jq:*)"]}}' > "$s"
+    cap "$AUDIT" --settings "$s" "$d/skills"
+    assert_exit 1 "$RC" "allowlist: compound commands -> exit 1"
+    assert_contains "$OUT" "4 command(s) need approval" "allowlist: flags each compound line"
+    assert_contains "$OUT" "compound command (|)" "allowlist: names a pipe"
+    assert_contains "$OUT" "compound command (&&)" "allowlist: names a chain"
+    assert_contains "$OUT" "compound command (;)" "allowlist: names a sequence"
+    assert_contains "$OUT" "command substitution" "allowlist: names command substitution"
+}
+
+test_allowlist_help() {
+    cap "$AUDIT" --help
+    assert_exit 0 "$RC" "allowlist --help: exit 0"
+    assert_contains "$OUT" "Usage:" "allowlist --help: prints usage"
+    cap "$AUDIT" --bogus
+    assert_exit 2 "$RC" "allowlist: unknown option -> exit 2"
 }
 
 # A bad settings path is a usage/IO error, not a false pass.
@@ -82,5 +108,6 @@ test_allowlist_home_token_expands() {
 }
 
 register test_allowlist_real test_allowlist_detects_gap test_allowlist_covers_allowed \
-    test_allowlist_pipes_builtins_comments test_allowlist_bad_settings \
+    test_allowlist_builtins_continuations_comments test_allowlist_flags_compound_commands \
+    test_allowlist_help test_allowlist_bad_settings \
     test_allowlist_token_needs_absolute_rule test_allowlist_home_token_expands

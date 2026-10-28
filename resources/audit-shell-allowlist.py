@@ -7,7 +7,9 @@ skill directs a sub-agent to run must be auto-approvable: a committed resource s
 (or a plain git/jq) covered by a `permissions.allow` rule in the settings backup.
 
 This scans the ```bash fenced blocks in the given agent/skill markdown files and checks
-each command against the allow rules. Anything not covered is reported as a violation.
+each command against the allow rules. Anything not covered is reported as a violation,
+and so is any pipe, chain (&&, ||, ;), or command substitution, which prompt for
+approval even when each part is allowlisted.
 
 Usage:
   audit-shell-allowlist.py [--settings PATH] [PATH ...]
@@ -20,6 +22,7 @@ Exit codes: 0 all covered, 1 one or more uncovered commands, 2 usage/IO error.
 """
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -50,11 +53,32 @@ def load_allow_prefixes(settings_path):
     return prefixes
 
 
-def extract_commands(md_text):
-    """Yield each command invocation found in ```bash fenced blocks of md_text.
+def compound_reason(cmd):
+    """Why cmd cannot be auto-approved as one command, or None when it can.
 
-    Line continuations (trailing backslash) are joined, then logical lines are split
-    on pipes / && / ; into individual command segments.
+    Claude prompts for a pipe, a chain (&&, ||, ;), and command substitution even
+    when every part is allowlisted, so each one is a violation in its own right.
+    Operators inside quotes are arguments, not shell syntax, and are ignored.
+    """
+    if "$(" in cmd or "`" in cmd:
+        return "command substitution"
+    lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
+    lex.whitespace_split = True
+    try:
+        tokens = list(lex)
+    except ValueError:
+        return "unbalanced quotes"
+    for tok in tokens:
+        if tok in ("|", "||", "&&", ";", "|&", "&"):
+            return f"compound command ({tok})"
+    return None
+
+
+def extract_commands(md_text):
+    """Yield each command line found in ```bash fenced blocks of md_text.
+
+    Line continuations (trailing backslash) are joined into one logical line, and a
+    trailing inline comment is dropped.
     """
     in_block = False
     logical = ""
@@ -80,10 +104,7 @@ def extract_commands(md_text):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        for seg in re.split(r"\|\||\||&&|;", line):
-            seg = seg.strip()
-            if seg:
-                yield seg
+        yield line
 
 
 def glob_base(rule):
@@ -167,6 +188,12 @@ def main(argv):
     i = 0
     while i < len(argv):
         a = argv[i]
+        if a in ("-h", "--help"):
+            print(__doc__.strip())
+            return 0
+        if a.startswith("-") and a != "--settings":
+            print(f"audit-shell-allowlist.py: unknown option {a}", file=sys.stderr)
+            return 2
         if a == "--settings":
             if i + 1 >= len(argv):
                 print("usage: audit-shell-allowlist.py [--settings PATH] [PATH ...]", file=sys.stderr)
@@ -188,16 +215,20 @@ def main(argv):
     violations = []
     for f in iter_md_files(scan):
         kind, name = item_identity(f)
+        rel = f.relative_to(REPO) if str(f).startswith(str(REPO)) else f
         for cmd in extract_commands(f.read_text()):
-            if not is_covered(expand_token(cmd, kind, name), prefixes):
-                rel = f.relative_to(REPO) if str(f).startswith(str(REPO)) else f
-                violations.append((str(rel), cmd))
+            reason = compound_reason(cmd)
+            if reason:
+                violations.append((str(rel), cmd, reason))
+            elif not is_covered(expand_token(cmd, kind, name), prefixes):
+                violations.append((str(rel), cmd, "not allowlisted"))
 
     if violations:
-        print(f"audit-shell-allowlist: {len(violations)} un-allowlisted command(s):", file=sys.stderr)
-        for rel, cmd in violations:
-            print(f"  {rel}: {cmd}", file=sys.stderr)
-        print("Add a committed-script invocation + a Bash(...) allow rule, or route via detect-project.sh.", file=sys.stderr)
+        print(f"audit-shell-allowlist: {len(violations)} command(s) need approval:", file=sys.stderr)
+        for rel, cmd, reason in violations:
+            print(f"  {rel}: {cmd}  [{reason}]", file=sys.stderr)
+        print("Use one committed-script invocation per line, covered by a Bash(...) allow rule, "
+              "or route via detect-project.sh. Pass data through a file, not a pipe.", file=sys.stderr)
         return 1
 
     print("audit-shell-allowlist: OK (every bash-block command is allowlisted)")

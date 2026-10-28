@@ -16,10 +16,12 @@ separate private repo (`agents-config`), not here.
    change a resource script, add or update its test in the same change.
 4. **Language-agnostic.** No hardcoded `cargo`/`make`/`npm`/`pytest`/`origin/master`/package
    names in any agent, skill, or resource. Route build/test/lint/doc/version through
-   `resources/detect-project.sh`.
+   the `detect-project` tool (`tools/detect-project/`, referenced as
+   `{{tools:detect-project}}`).
 5. **No shell invocation that can block on approval.** Every command an agent or skill directs
    a (sub-)agent to run must be auto-approvable: a committed resource script (or a plain
-   `git`/`jq`), with no `$(...)`, backticks, or `eval`, and covered by a `Bash(...)` rule in
+   `git`/`jq`), one per line with no pipe, `&&`, `;`, `$(...)`, backticks, or `eval` (pass data
+   through a file instead of a pipe), and covered by a `Bash(...)` rule in
    `resources/allowlist.json`. `resources/audit-shell-allowlist.py` enforces this (test:
    `tests/cases/allowlist.sh`); when you add a skill/agent command, add its allow rule in the
    same change. Spawned agents declare a non-interactive `permissionMode` (`acceptEdits` for
@@ -32,8 +34,10 @@ separate private repo (`agents-config`), not here.
 - `agents/<name>.md` - agent profiles (flat files, YAML frontmatter: name, model, tools,
   description).
 - `skills/<name>/SKILL.md` - skills, with optional `skills/<name>/resources/` for helper scripts.
-- `resources/` - shared, non-skill tooling: `detect-project.sh` (project-type detector),
-  `reviewer-prompt.md` (the `x review` template).
+- `tools/<name>/` - mind tools referenced as `{{tools:<name>}}`: `detect-project` (project-type
+  detector) and `shard-plan` (work-unit sharder).
+- `resources/` - shared, non-skill files: `reviewer-prompt.md` (the `x review` template),
+  `allowlist.json`, and `audit-shell-allowlist.py`.
 - `x` - manager: install/uninstall/status/check/review (see `./x help`).
 - `tests/run.sh` - the hermetic test harness; `tests/lib.sh` assertions; `tests/fixtures/`.
 - `resources/allowlist.json` - the Bash allow rules the library needs, audited by

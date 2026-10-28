@@ -80,5 +80,15 @@ test_detect_run_usage() {
     assert_exit 2 "$RC" "detect --run without a key -> exit 2"
 }
 
-register test_detect_rust test_detect_node test_detect_python test_detect_go test_detect_ci_and_walkup test_detect_unknown \
+# The rust readme command is opt-in via README.tpl, so a hand-written README is never
+# regenerated. A stub cargo-readme on PATH stands in for the real binary.
+test_detect_rust_readme_opt_in() {
+    local d bin; d="$(mktemp_d)"; bin="$(mktemp_d)"; : > "$d/Cargo.toml"
+    printf '#!/usr/bin/env bash\n' > "$bin/cargo-readme"; chmod +x "$bin/cargo-readme"
+    assert_eq "" "$(PATH="$bin:$PATH" "$DET" "$d" --what readme)" "detect rust readme: no README.tpl -> no readme command"
+    : > "$d/README.tpl"
+    assert_eq "cargo readme" "$(PATH="$bin:$PATH" "$DET" "$d" --what readme)" "detect rust readme: README.tpl -> cargo readme"
+}
+
+register test_detect_rust test_detect_rust_readme_opt_in test_detect_node test_detect_python test_detect_go test_detect_ci_and_walkup test_detect_unknown \
     test_detect_run_executes test_detect_run_propagates_failure test_detect_run_empty_noop test_detect_run_usage

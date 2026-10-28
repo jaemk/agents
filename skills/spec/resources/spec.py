@@ -16,6 +16,10 @@ Commands:
   set    NAME [PROJECT] --status S [--dir D]  set an existing row's status
   sync   [PROJECT] [--dir D] [--json]         report status counts and inconsistencies
 
+Statuses come from the README's legend (the `Status values:` sentence), so a
+project that uses `planned`/`partial` keeps them. Without a legend the values
+are done, pending, and research. add/set reject a status the legend lacks.
+
 Exit codes: 0 ok, 1 inconsistency (sync), 2 usage error, 3 precondition failure.
 """
 
@@ -97,6 +101,55 @@ def id_prefix(slug):
     if not stem:
         stem = "spec"
     return stem[:6].upper()
+
+
+DEFAULT_STATUSES = ("done", "pending", "research")
+
+
+def legend_statuses(readme_path):
+    """The status values the README's legend declares, in order.
+
+    The legend is the sentence starting `Status values:`; each backticked word in
+    it is a status (e.g. `done`, `planned`, `partial`). The sentence ends at the
+    first period outside parentheses, so a later backticked word is not read.
+    Falls back to DEFAULT_STATUSES when there is no legend.
+    """
+    text = " ".join(Path(readme_path).read_text().split())
+    start = text.find("Status values:")
+    if start < 0:
+        return list(DEFAULT_STATUSES)
+    depth = 0
+    end = len(text)
+    for i in range(start, len(text)):
+        c = text[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth = max(0, depth - 1)
+        elif c == "." and depth == 0 and (i + 1 == len(text) or text[i + 1] == " "):
+            end = i
+            break
+    found = []
+    for s in re.findall(r"`([^`]+)`", text[start:end]):
+        if s not in found:
+            found.append(s)
+    return found or list(DEFAULT_STATUSES)
+
+
+def default_status(statuses):
+    """The status a new row gets: the first legend value that is not `done`."""
+    for s in statuses:
+        if s != "done":
+            return s
+    return statuses[0]
+
+
+def check_status(readme_path, status):
+    """Return None when status is in the legend, else a usage message."""
+    allowed = legend_statuses(readme_path)
+    if status in allowed:
+        return None
+    return f"unknown status {status!r}; this spec's legend allows: {', '.join(allowed)}"
 
 
 def parse_table(readme_path):
@@ -220,6 +273,13 @@ def cmd_add(args):
         print(f"add: cannot derive a slug from name: {args.name!r}", file=sys.stderr)
         return 2
 
+    if args.status is None:
+        args.status = default_status(legend_statuses(readme))
+    bad = check_status(readme, args.status)
+    if bad:
+        print(f"add: {bad}", file=sys.stderr)
+        return 2
+
     doc_path = spec_dir / f"{slug}.md"
     if doc_path.exists():
         print(f"refusing to overwrite {doc_path}", file=sys.stderr)
@@ -333,6 +393,11 @@ def cmd_set(args):
         print(f"spec dir not initialized: {spec_dir}", file=sys.stderr)
         return 3
 
+    bad = check_status(readme, args.status)
+    if bad:
+        print(f"set: {bad}", file=sys.stderr)
+        return 2
+
     lines = readme.read_text().splitlines()
     target = args.name.strip().lower()
     in_table = False
@@ -393,8 +458,9 @@ def main(argv=None):
     p_add.add_argument("name", metavar="NAME", help="feature name")
     p_add.add_argument("project", nargs="?", default=None, metavar="PROJECT",
                        help="project root (default: .)")
-    p_add.add_argument("--status", default="pending",
-                       help="initial status: done, pending, or research (default: pending)")
+    p_add.add_argument("--status", default=None,
+                       help="initial status, one of the legend's values (default: the first "
+                            "one that is not done, e.g. pending)")
     p_add.add_argument("--desc", default=None, metavar="TEXT",
                        help="optional description paragraph")
     p_add.add_argument("--dir", default=None, metavar="D",
@@ -412,7 +478,7 @@ def main(argv=None):
     p_set.add_argument("project", nargs="?", default=None, metavar="PROJECT",
                        help="project root (default: .)")
     p_set.add_argument("--status", required=True,
-                       help="new status: done, pending, or research")
+                       help="new status, one of the legend's values")
     p_set.add_argument("--dir", default=None, metavar="D",
                        help="spec dir name relative to project root")
 
