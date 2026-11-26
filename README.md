@@ -53,8 +53,8 @@ name, `x` operates on everything.
 ## Contents
 
 Agents:
-- `planner` - designs plans and shards work across disjoint agents with model tiers (randomized).
-- `dev` - implements with formal tests; always hands off to `test`.
+- `planner` - designs plans and produces disjoint shard tables when explicitly requested.
+- `dev` - implements a specified change and verifies it with formal tests.
 - `test` - certifies and improves coverage from outside the implementor's perspective.
 - `fix-implementer` - applies an explicit fix spec verbatim.
 - `implementor-reviewer` - read-only review from the author's perspective.
@@ -62,8 +62,7 @@ Agents:
 - `security-reviewer` - read-only adversarial review for exploitable vulnerabilities.
 
 Skills:
-- `do` - plan and (optionally) implement a change end to end: planner -> fix-implementer/dev ->
-  test -> CI. Plans the spec changes too in a spec-driven project.
+- `do` - plan, implement, and verify a change. Includes spec changes in spec-driven projects.
 - `review` - review local changes and/or a GitHub PR; optionally fix findings and write back.
 - `spec` - set up and maintain a `spec/` dir: a feature-status table and per-topic docs with
   stable IDs.
@@ -73,6 +72,8 @@ Skills:
 - `voice` - learn and maintain the user's writing voice from commit history, feedback, and
   draft/rewrite rounds. The rules live at `~/.local/share/agents/voice/voice-rules.md` (imported
   by `~/.claude/CLAUDE.md`), the evidence behind them in `voice-profile.md` next to it.
+
+Skills run in the current session by default. Sub-agents and sharding require an explicit request.
 
 ## Development
 

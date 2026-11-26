@@ -24,10 +24,14 @@ separate private repo (`agents-config`), not here.
    through a file instead of a pipe), and covered by a `Bash(...)` rule in
    `resources/allowlist.json`. `resources/audit-shell-allowlist.py` enforces this (test:
    `tests/cases/allowlist.sh`); when you add a skill/agent command, add its allow rule in the
-   same change. Spawned agents declare a non-interactive `permissionMode` (`acceptEdits` for
-   editors, `dontAsk` for read-only) so they never stall on a prompt. Orchestrators (`do`,
+   same change. When delegation is requested, spawned agents declare a non-interactive
+   `permissionMode` (`acceptEdits` for editors, `dontAsk` for read-only). Orchestrators (`do`,
    `review`) never wait indefinitely: a unit that errors, returns nothing, or stalls on a
    timed-out approval is a failed unit - surface it and re-dispatch or abort, never hang.
+
+6. **Work in the current session by default.** Skills and profiles delegate to sub-agents only
+   for work the user explicitly asks to delegate. Use sharding only when the user explicitly
+   asks for sharding or parallel agent work. Keep downstream handoffs within that scope.
 
 ## Layout
 

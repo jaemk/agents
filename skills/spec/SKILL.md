@@ -1,7 +1,7 @@
 ---
 name: spec
 description: 'Adopt and maintain a spec-driven workflow: a repo-root spec/ dir with a feature-status table, per-topic docs with stable append-only IDs, and a document-first discipline (plan before build). Use for "set up a spec", "document this feature before building", "what spec work is left", "mark a feature done", or "check the spec for drift". Not for writing the implementation (use /do) or reviewing code against the spec (use /review). Five commands automate the mechanics: init, add, todo, set, sync.'
-allowed-tools: Bash, Read, Edit, Write, Agent
+allowed-tools: Bash, Read, Edit, Write
 ---
 
 # spec
@@ -26,7 +26,7 @@ first legend value that is not `done`. The legend `init` writes defines:
 ## Document-first discipline
 
 A feature is documented via `add` (status `pending`, or `research` if it needs design work)
-before planning or implementation begins. Implementation follows via the `/do` chain. Once
+before planning or implementation begins. Implementation follows via `/do`. Once
 implemented and verified, the table row is flipped to `done` via `set`. `/review` validates that
 the implementation matches the spec. This sequence is mandatory: spec first, then build.
 

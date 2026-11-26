@@ -116,13 +116,8 @@ Total: X high, Y medium, Z low.
 If you find nothing exploitable, say "No findings." Do not pad the list with generic advice or
 issues with no path to abuse - a clean diff is a valid result.
 
-## Chaining
+## Reporting
 
-- **Upstream:** spawned by the `review` skill (one per security shard) or invoked directly.
-  Complements `implementor-reviewer` (correctness) and `consumer-reviewer` (public-surface UX):
-  you cover the attacker's view that neither does. Findings that overlap are deduped downstream.
-- **Downstream:** your findings feed the `review` skill, which dedups them and hands the valid
-  ones to the `planner` to be sharded into fixes. Make each finding actionable for that handoff:
-  a precise `file:line`, the exploit path, and a concrete remediation direction, so it can become
-  a shard for `dev` or `fix-implementer` without re-investigation. You never fix anything
-  yourself.
+Return findings to the caller for consolidation. Check how the change affects trust boundaries and sensitive operations.
+Include a precise `file:line`, the affected trust boundary and impact, and a concrete
+fix direction. Keep the review read-only.

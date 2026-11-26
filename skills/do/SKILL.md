@@ -1,26 +1,27 @@
 ---
 name: do
-description: 'Plan and (optionally) implement a change end to end through the agent chain. Infers mode from the prompt: a planning ask ("plan X", "design X", "how would you X") runs the planner and returns the plan plus shard table, advisory only; an implementation ask ("do X", "implement X", "build X", "add X") runs the full chain - the planner shards the work, fix-implementer/dev execute the shards, dev hands off to test, then the detected CI runs. In a spec-driven project (a spec/ dir) the spec changes are planned with the code and the feature-status row is updated after CI. Add "and review" to run the review skill on the result. Language-agnostic via detect-project.sh. Use for "do X", "implement X", "build X", "plan X".'
+description: 'Plan or implement a change end to end. Planning requests return an advisory plan. Implementation requests plan, make, and verify changes using the detected CI. In a spec-driven project, include spec edits in the plan and update feature status after CI. Add "and review" to run the review skill. Sub-agent delegation and sharding require an explicit request. Use for "do X", "implement X", "build X", or "plan X".'
 allowed-tools: Bash, Read, Edit, Write, Agent
 requires: skill:review skill:spec
 ---
 
 # do
 
-The forward implementation chain in one entry point: a goal goes to the `planner`, which shards
-it; `fix-implementer` and `dev` execute the shards; `dev` hands each substantive shard to
-`test`; then the detected CI runs. The counterpart to `/review` (which drives the review -> fix
-path); `do` drives the plan -> build -> test path. Language-agnostic: every build/test/lint/ci
-command comes from the detector.
+Plan, implement, and verify changes in the current session. Get build, test, lint, and CI
+commands from the project detector.
 
 ## Mode (inferred from the prompt)
 
-- **plan** - the ask is to plan/design/outline ("plan X", "design X", "how would you X", "just
-  plan"). Run the planner and stop at the plan + shard table. Advisory: change nothing.
-- **implement** (default for "do/implement/build/add X") - run the full chain: plan, execute the
-  shards, certify with tests, run CI.
+- **plan** - for planning or design requests. Return an advisory plan without changing files.
+- **implement** - for requests to do, implement, build, or add something. Plan the change,
+  implement it, and run verification.
 
 Announce the resolved mode at the start, e.g. "do: plan" or "do: plan + implement".
+
+Use sub-agents only for stages the user explicitly asks to delegate. Produce a shard table
+only when the user asks for sharding or parallel agent work. In plan mode, a requested shard
+table is advisory. A request for an additional review invokes that skill in the current session
+unless the user requests delegation for the review.
 
 ## Steps
 
@@ -34,47 +35,28 @@ files for context and identify the project's commands (do not assume a toolchain
 ```
 
 If the project has a `spec/` (or `specs/`) dir, it is spec-driven (see the `spec` skill): the
-behavior is documented before it is built. Read `spec/README.md` and the relevant spec docs,
+behavior is documented before it is built. Read the spec directory's `README.md` and the relevant spec docs,
 and list where the goal's statements belong: existing IDs it changes, new IDs it needs (append
 only, never reuse a number), and the feature-status row it moves.
 
-### 2. Plan (always)
+### 2. Plan
 
-Spawn the `planner` agent with the goal, the acceptance criteria, any constraints, and (for a
-spec-driven project) the spec changes from step 1, which become part of the plan: the spec doc
-edits land with the code, and the tests that verify a new statement cite its ID the way the
-project's existing tests do. It returns the plan and a **shard table**: disjoint written-file
-sets (no two shards touch the same file) with an **executor** and **model** per shard -
-`fix-implementer` for mechanical shards, `dev` (which hands off to `test`) for substantive ones.
+Identify the approach, affected files, existing code to reuse, dependencies, and how to verify
+the acceptance criteria. In a spec-driven project, include spec edits in the plan and have
+tests reference new statement IDs using the project's existing convention.
 
-In **plan** mode, present the planner's plan + shard table and stop here.
+For explicitly requested delegation or sharding, follow the optional workflow below within the
+requested scope. In **plan** mode, present the resulting plan and stop.
 
-### 3. Execute the shards (implement mode)
+### 3. Implement
 
-Spawn one executor per shard from the planner's table, in a single batch so they run
-concurrently, at the model the table specifies:
-- **mechanical** shard -> `fix-implementer`, given the shard as a verbatim spec.
-- **substantive** shard -> `dev`, given the behavior + acceptance criteria; `dev` implements
-  with formal committed tests and then hands off to `test` for an independent, outside-in
-  coverage certification.
-
-The shards are disjoint by construction, so they do not collide. Add a barrier only where one
-shard consumes another's output (the planner flags these). Wait for every shard to report - and
-for each `dev` shard's `test` certification - before continuing. If a `test` certification
-fails, send that shard back to `dev`; if a `fix-implementer` shard turns out to need reasoning,
-re-route it to `dev`.
-
-Never wait indefinitely. A shard that returns nothing usable, reports an error, or stalls (for
-example a sub-agent blocked on a tool-approval prompt that timed out) is a **failed shard**, not
-a reason to keep waiting. Surface the failure explicitly, then re-dispatch that shard once or
-abort the run with what completed - do not hang on a report that is not coming. Sub-agents should
-not need approvals: they invoke only committed resource scripts (covered by the Bash allow
-rules), so a stall means something is wrong, not that you should wait longer.
+Make the planned changes and add or update formal tests for changed behavior. In a spec-driven
+project, update the behavior docs before implementing their changes. Check that the tests cover
+the acceptance criteria and relevant boundaries and failure paths.
 
 ### 4. Verify
 
-Run the detected CI and fix any failures (re-dispatch to the shard's owning executor) until
-green:
+Run the detected CI and address failures:
 
 ```bash
 {{tools:detect-project}} . --run ci
@@ -87,27 +69,35 @@ no missing or orphaned docs.
 
 ### 5. Review (when asked)
 
-When the input asks for a review ("do X and review it"), run the `review` skill in its default
-local mode on the change once CI is green. It is read-only; carry any valid findings into the
-report, and re-dispatch them to the owning executor only if the input also asked to fix them.
+When the input asks for a review ("do X and review it"), run the `review` skill in local mode
+once CI is green. Include its findings in the report. Apply fixes only if requested.
 
 ### 6. Report
 
-State the resolved mode, the plan summary, the shard table that ran (each shard's executor,
-model, and result), the `test` certifications, the CI result, the spec rows changed, any review
-findings, and the files changed. Commit locally only if the user asked; do not push or open a
-PR unless asked.
+State the resolved mode and summarize the plan. For implementation, report the files changed,
+test and CI results, any spec status changes, and requested review findings. Include delegated
+work and its results if used. Commit locally only if the user asked. Push or open a PR only
+when requested.
+
+## Explicit delegation and sharding
+
+- If sharding is requested and you are planning directly, follow the shard-table guidance in
+  the `planner` profile in the current session.
+- For a delegated planning stage, give `planner` the goal, acceptance criteria, constraints,
+  and any spec edits. Ask for a shard table only when sharding or parallel agent work was
+  requested. The table lists disjoint write sets, dependencies, executors, and models.
+- For delegated implementation, use `fix-implementer` for a precise mechanical fix and `dev`
+  for changes that need implementation judgment and formal tests. When sharding is requested,
+  use one executor per shard and run independent shards together. Wait for prerequisites before
+  running shards that depend on them.
+- Delegate independent coverage certification to `test` only when the user explicitly
+  requests delegated verification. Give it the implementation summary, tests, and relevant
+  paths. The current agent owns CI and any verification outside the delegated scope.
+- Use non-interactive permissions and allowlisted commands for delegated work. Surface failed
+  or stalled tasks and continue directly when possible. Report any remaining blocker.
 
 ## Discipline
 
-- The chain is `planner` -> `fix-implementer`/`dev` -> `test`; do the planning in the `planner`
-  agent, not inline, so sharding stays in one place and is reusable.
-- All build/test/lint/ci commands come from `{{tools:detect-project}}`; no hardcoded
-  toolchain.
-- All tests are formal and committed (`dev`/`test`); never one-off inline probes.
-- Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)
-  covered by a Bash allow rule (see `resources/allowlist.json`), so no spawn ever blocks on a
-  tool approval. A sub-agent that stalls is a failed shard, not a wait - see step 3.
-- Shards must be disjoint in their written files so executors can run concurrently without
-  corrupting each other.
+- Use `{{tools:detect-project}}` for build, test, lint, and CI commands.
+- Use formal project tests for verification and avoid one-off inline probes.
 - Do not force-push or rewrite history unless explicitly asked.

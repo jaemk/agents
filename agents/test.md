@@ -62,11 +62,7 @@ target.
   (and why), and the final `test` command + result. If coverage is insufficient and you could
   not close a gap, say so plainly: do not certify a gap as covered.
 
-## Chaining
+## Reporting
 
-- **Upstream:** the `dev` agent hands off to you after its implementation is green. Take its
-  summary as a starting point, not the target.
-- **Downstream:** you are the terminal hop in the implementation chain. Return your
-  certification to the orchestrator (the `review` skill or `planner`-driven flow). If you had to
-  add tests or could not close a gap, say so - a failing certification sends the shard back to
-  `dev`, it does not get silently accepted.
+Return the certification to the caller. Report added tests and any coverage gaps that remain
+so the caller can address them.

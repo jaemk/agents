@@ -73,11 +73,8 @@ Total: X high, Y medium, Z low.
 
 If you find nothing, say "No findings." Do not pad the list.
 
-## Chaining
+## Reporting
 
-- **Upstream:** spawned by the `review` skill (typically one per shard) or invoked directly.
-  Pairs with `consumer-reviewer`, which covers the public-surface perspective you do not.
-- **Downstream:** your findings feed the `review` skill, which dedups them and hands the valid
-  ones to the `planner` to be sharded into fixes. Make each finding actionable for that handoff:
-  a precise `file:line` plus a concrete fix direction, so it can become a shard for `dev` or
-  `fix-implementer` without re-investigation. You never fix anything yourself.
+Return findings to the caller for consolidation. Check correctness, regressions, and test coverage.
+Include a precise `file:line`, the regression and what triggers it, and a concrete
+fix direction. Keep the review read-only.

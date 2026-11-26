@@ -1,6 +1,6 @@
 ---
 name: review
-description: 'Review code changes and optionally fix the findings. Defaults to a read-only review of your local changes (diff vs the detected base branch): shards the diff, spawns implementor-reviewer, consumer-reviewer, and adversarial security-reviewer agents in parallel, and reports deduplicated findings with severity and a verdict. Add `pr [N]` to also pull a GitHub PR''s review comments, `fix` to plan and apply fixes (mechanical -> fix-implementer, substantive -> dev then test), and `writeback` to resolve threads / minimize comments / re-request Copilot. Language-agnostic via detect-project.sh. Use for "review my changes", "review this PR", "review and fix", "address the PR comments".'
+description: 'Review local changes against the detected base and report findings with severity and a verdict. Add `pr [N]` to include GitHub PR comments, `fix` to apply and verify fixes, and `writeback` to update PR review threads and re-request Copilot. Sub-agent delegation and sharding require an explicit request. Use for "review my changes", "review this PR", "review and fix", or "address the PR comments".'
 allowed-tools: Bash, Read, Edit, Write, Agent
 expand: resources/pr.py
 ---
@@ -36,13 +36,12 @@ prnumber`. The local ones (`ci readme pushpreview diff units prnumber`) take no 
 Announce the resolved modes at the start, e.g. "review: local + fix" or "review: pr 264 +
 fix + writeback".
 
-## Model tiers
+## Execution
 
-| Tier | What | Model |
-|------|------|-------|
-| 0 mechanical | `pr.py` (GitHub API, ci, readme, diff, push preamble) | script, no model |
-| 1 delegation | review sub-agents (`implementor-reviewer`/`consumer-reviewer`/`security-reviewer`); fix executors (`fix-implementer`/`dev`/`test`) fanned across disjoint shards | each agent's pinned default (override per run) |
-| 2 judgment   | shard the diff for review; dedup + classify findings; hand valid findings to the `planner`, which shards the fix work | opus (session model + `planner`) |
+Review and apply requested fixes in the current session by default. Use sub-agents only for
+stages the user explicitly asks to delegate. Shard the work only when the user explicitly asks
+for sharding or parallel agent work. A PR target, fix mode, writeback, or model preference
+does not by itself request delegation.
 
 ## Steps
 
@@ -56,91 +55,47 @@ fix + writeback".
 The base branch is auto-detected from the remote's default branch (origin/HEAD, falling back to
 the conventional main or master); pass `--base` to override.
 
-Build an inventory of **review units** from the changed files. One unit is normally one file,
-except keep **atomic couplings** together (a generated file and its source, a test and the
-fixture it asserts on) as a single unit. Tag each unit:
-- **code set** - every changed source/test file (reviewed by `implementor-reviewer`).
-- **consumer set** - public-facing surface only: public API/exports, CLI, README/docs,
-  changelog, examples (reviewed by `consumer-reviewer`).
-- **security set** - source touching a security-sensitive surface: untrusted input
-  (request/CLI/file/network/env data), auth, crypto, secrets, filesystem or process execution,
-  serialization, or a newly added dependency (reviewed by the adversarial `security-reviewer`).
-  A pure-internal change with no such surface needs no security pass; when in doubt, include it.
+### 2. Review the changes
 
-A unit can be in more than one set.
+Read the changed files and enough surrounding code to check their behavior and callers.
+Cover these perspectives where applicable.
 
-### 2. Shard the changed files
+- **Correctness:** Check intended behavior, regressions, edge cases, and test coverage.
+- **Consumer impact:** Check public APIs, CLI, configuration, documentation, and examples
+  from the user's perspective.
+- **Security:** Check changed trust boundaries and sensitive operations, including untrusted
+  input, auth, crypto, secrets, filesystem access, process execution, serialization, and new
+  dependencies. Trace credible issues to their impact.
 
-Use the shared sharder rather than hand-rolling the shuffle/pack. Feed it the changed files as
-units (one per line: a unit id then the files it covers); it randomizes the order and packs
-them into shards, varying each file's neighbors each run so reviewers surface different
-cross-cutting issues. Write the units to a file, then pass the file to the sharder (two
-separate commands, never a pipe, so neither prompts for approval):
+When the user explicitly requests delegated review, use the optional workflow below for the
+requested review work and cover any remaining scope in the current session.
 
-```bash
-{{self}}/resources/pr.py units --out ./local/review-units.txt
-{{tools:shard-plan}} --max-units 5 ./local/review-units.txt
-```
-
-`pr.py units` writes the baseline review-unit inventory (one `<file>\t<file>` line per changed
-file vs the detected base; pass `--base` to override). Between the two commands, edit the file
-to merge atomic couplings (a file and its paired golden/snapshot) onto one unit line so they
-stay together.
-
-Pick `--max-units` from the review-agent model (sonnet: ~5 units/shard; opus: ~12). Shard the
-code set, consumer set, and security set independently. Each output line is one shard:
-`unit,unit<TAB>files`. Announce the shard counts.
-
-### 3. Spawn one reviewer per shard, in parallel
-
-For each code shard spawn an `implementor-reviewer`; for each consumer shard spawn a
-`consumer-reviewer`; for each security shard spawn a `security-reviewer` (an adversarial,
-attacker-mindset pass). Each agent's prompt carries: the target, its explicit file list, and an
-instruction to scope findings to those files (read others only for context). All three are
-read-only and carry their own rubric. Spawn all shard agents in a single message so they run
-concurrently. The review sub-agents default to their pinned model (opus); with a model override
-in the input (e.g. "review with sonnet"), pass it to every spawn, otherwise omit `model` and
-they use that default.
-
-### 4. (pr mode) Fetch GitHub PR comments
+### 3. (pr mode) Fetch GitHub PR comments
 
 ```bash
 {{self}}/resources/pr.py PR_NUMBER comments threads
 ```
 
-Carry the open inline comments into step 5 alongside the agent findings.
+Carry the open inline comments into the findings for evaluation.
 
-### 5. Evaluate and dedup (opus / judgment core)
+### 4. Evaluate and deduplicate
 
-Merge findings across shards (and PR comments). A cross-cutting issue can appear in more than
-one shard - merge duplicates into one. Assign each a verdict:
+Merge duplicate findings, including any PR comments. Assign each a verdict:
 - **valid** - real, the code should change.
 - **already-fixed** - was valid but the current code already handles it.
 - **invalid** - incorrect or environment-specific.
 
-### 6. Report
+### 5. Report
 
-Present one consolidated report: target and review-agent model; shard counts; counts by
-severity (high/medium/low) and verdict; each valid finding with `file:line` and why it matters;
-each invalid/already-fixed with a one-line reason; a closing verdict (clean, or N valid
-findings to address). In **local** (no `fix`) mode, stop here - this is advisory.
+Report the target, counts by severity and verdict, each valid finding with `file:line` and
+its impact, and a brief reason for each invalid or already-fixed finding. Close with the
+overall verdict. Include delegation details if used. Without `fix`, stop after reporting.
 
-### 7. (fix mode) Hand off to the planner, then apply
+### 6. (fix mode) Apply and verify fixes
 
-Do not write the fix plan here - hand the **valid** findings to the `planner` agent. The planner
-turns them into a shard table: disjoint written-file sets (no two shards touch the same file)
-with an executor and model per shard. It assigns:
-- **mechanical** shards (doc/comment, a pattern replicated across files, a precise one-line
-  change) -> `fix-implementer`, as a verbatim fix spec.
-- **substantive** shards (logic, API, anything needing reasoning) -> `dev`, which implements
-  with formal tests and then hands off to `test` for coverage certification.
-
-Spawn one executor per shard from the planner's table, in a single batch, at the model the table
-specifies. Wait for all to report (and for each `dev` shard's `test` certification) before
-continuing. Never wait indefinitely: a shard (or a reviewer in step 3) that returns nothing
-usable, reports an error, or stalls on a tool-approval prompt that timed out is a **failed
-unit** - surface it and re-dispatch once or abort with what completed, do not hang. Then run the
-detected CI and regenerate the README if applicable:
+Plan and apply fixes for the valid findings. Add or update formal tests as needed to cover the
+corrected behavior. Use the optional workflow below for any fix stages the user explicitly
+asked to delegate. Run the detected CI and regenerate the README if applicable:
 
 ```bash
 {{self}}/resources/pr.py ci
@@ -162,7 +117,7 @@ git commit -m "<subject describing the fixes>"
 git push
 ```
 
-### 8. (writeback mode) Update the PR conversation
+### 7. (writeback mode) Update the PR conversation
 
 After pushing:
 
@@ -173,14 +128,37 @@ After pushing:
 `resolve` closes all open threads, `rerequest` triggers a fresh Copilot review, `minimize`
 hides pre-push comments (use `--dry-run` first to preview). Report what was resolved/minimized.
 
+## Explicit delegation and sharding
+
+For delegated review, use `implementor-reviewer` for correctness, `consumer-reviewer` for
+consumer impact, and `security-reviewer` for security, within the scope requested. Give each
+reviewer the target and file scope. Keep reviewers read-only. Use a requested model override
+or the profile's default.
+
+When delegated review is explicitly requested in parallel or by shard, group work by applicable
+perspectives and keep atomic couplings together, such as a generator and its output or a test
+and its fixture. To shard a large perspective, generate the baseline inventory, edit it to
+include only the relevant files and merge coupled files onto one line, then pass it to the
+shared sharder. Pass the same `--base` to `units` as to `diff` if overridden.
+
+```bash
+{{self}}/resources/pr.py units --out ./local/review-units.txt
+{{tools:shard-plan}} --max-units 5 ./local/review-units.txt
+```
+
+Each output line identifies one shard and its file list. Run independent reviewers together and
+merge their findings with the rest of the review.
+
+For requested delegation of fix stages, use `planner` for planning, `fix-implementer` for
+precise mechanical edits, `dev` for substantive changes, or `test` for independent coverage
+certification. Delegate only the requested stages. For explicitly requested fix sharding,
+use the planner profile's disjoint write sets and respect dependencies between shards.
+Use non-interactive permissions and allowlisted commands. Surface failed or stalled tasks and
+continue directly when possible. Report any remaining blocker.
+
 ## Discipline
 
-- No one-off inline probes: every check the fix agents make is a committed test, never an ad-hoc
-  command. All build/test/lint/readme commands come from `{{tools:detect-project}}`.
-- The reviewers are read-only. Only `fix` mode edits, and only through the agent chain:
-  `implementor-reviewer`/`consumer-reviewer`/`security-reviewer` -> `planner` ->
-  `fix-implementer`/`dev` -> `test`.
-- Every shell command spawned agents run is a committed resource script (or a plain `git`/`jq`)
-  covered by a Bash allow rule (see `resources/allowlist.json`), so no spawn ever blocks on a
-  tool approval. A sub-agent that stalls is a failed unit, not a wait - see step 7.
+- Use formal project tests for verification and avoid one-off inline probes.
+- Use `{{tools:detect-project}}` for build, test, lint, and README commands.
+- Keep the review read-only unless the user requests fixes.
 - Do not force-push or rewrite history unless explicitly asked.

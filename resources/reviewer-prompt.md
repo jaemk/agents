@@ -1,6 +1,6 @@
 You are reviewing ONE agent or skill definition from a personal Claude Code library against the
 rubric and rules below. The MODE for this run - review-only, or review-and-fix - is stated on
-the first line of this prompt, above this text. Follow it.
+the first line of this prompt, above this text. Follow it and do the work in this session.
 
 The target file(s) are dumped verbatim below the `=== TARGET FILES ===` delimiter, each
 preceded by a `--- <path> ---` header. A skill review includes its `SKILL.md` and every file
@@ -39,6 +39,8 @@ LOUD RULES - THESE ARE NOT OPTIONAL
    committed tests in tests/run.sh. Exploratory commands are NOT a substitute for a test case.
 4. LANGUAGE-AGNOSTIC. No hardcoded cargo/make/npm/pytest/origin-master/crate names anywhere.
    Build/test/lint/doc/version go through resources/detect-project.sh.
+5. EXPLICIT DELEGATION ONLY. Skills and profiles do their work in the current session by
+   default. Sub-agents and sharding each require an explicit user request.
 ```
 
 ## Output
